@@ -4,12 +4,25 @@ import 'package:code_text_field/code_text_field.dart';
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:highlight/languages/sql.dart';
 
+/// SQL编辑器组件
+/// 提供SQL语句的编辑、语法高亮、自动完成等功能
 class SqlEditor extends StatefulWidget {
+  /// 初始SQL语句
   final String? initialValue;
+
+  /// SQL语句变化回调函数
   final ValueChanged<String>? onChanged;
+
+  /// 执行SQL语句回调函数
   final VoidCallback? onExecute;
+
+  /// 是否只读模式
   final bool readOnly;
+
+  /// 可用的表名列表（用于自动完成）
   final List<String> tables;
+
+  /// 可用的列名列表（用于自动完成）
   final List<String> columns;
 
   const SqlEditor({
@@ -27,17 +40,31 @@ class SqlEditor extends StatefulWidget {
 }
 
 class _SqlEditorState extends State<SqlEditor> {
+  /// 代码编辑器控制器
   late CodeController _codeController;
+
+  /// 自动完成菜单的位置链接
   final LayerLink _layerLink = LayerLink();
+
+  /// 自动完成菜单的覆盖层条目
   OverlayEntry? _overlayEntry;
+
+  /// 编辑器焦点节点
   final FocusNode _focusNode = FocusNode();
+
+  /// 当前正在输入的单词
   String _currentWord = '';
+
+  /// 自动完成建议列表
   List<String> _suggestions = [];
+
+  /// 当前选中的建议项索引
   int _selectedIndex = 0;
 
-  // SQL keywords for syntax highlighting and autocomplete
+  /// SQL关键字样式映射
+  /// 用于语法高亮显示不同类型的SQL关键字
   static final Map<String, TextStyle> _keywords = {
-    // DML
+    // DML关键字
     'SELECT':
         const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
     'INSERT':
@@ -62,7 +89,7 @@ class _SqlEditorState extends State<SqlEditor> {
         const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
     'SET': const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
 
-    // DDL
+    // DDL关键字
     'CREATE': const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
     'ALTER': const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
     'DROP': const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
@@ -74,7 +101,7 @@ class _SqlEditorState extends State<SqlEditor> {
     'DATABASE':
         const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
 
-    // Joins
+    // 连接关键字
     'JOIN': const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
     'INNER JOIN':
         const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
@@ -88,7 +115,7 @@ class _SqlEditorState extends State<SqlEditor> {
         const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
     'ON': const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
 
-    // Operators
+    // 运算符关键字
     'AND': const TextStyle(color: Colors.red),
     'OR': const TextStyle(color: Colors.red),
     'NOT': const TextStyle(color: Colors.red),
@@ -98,7 +125,7 @@ class _SqlEditorState extends State<SqlEditor> {
     'IS NULL': const TextStyle(color: Colors.red),
     'IS NOT NULL': const TextStyle(color: Colors.red),
 
-    // Functions
+    // 函数关键字
     'COUNT': const TextStyle(color: Colors.teal),
     'SUM': const TextStyle(color: Colors.teal),
     'AVG': const TextStyle(color: Colors.teal),
@@ -107,7 +134,7 @@ class _SqlEditorState extends State<SqlEditor> {
     'DISTINCT': const TextStyle(color: Colors.teal),
   };
 
-  // Additional SQL keywords for autocomplete only
+  /// 额外的SQL关键字列表（仅用于自动完成）
   static const List<String> _additionalKeywords = [
     'AS',
     'ASC',
@@ -138,6 +165,7 @@ class _SqlEditorState extends State<SqlEditor> {
   @override
   void initState() {
     super.initState();
+    // 初始化代码编辑器控制器
     _codeController = CodeController(
       text: widget.initialValue ?? '',
       language: sql,
@@ -152,11 +180,13 @@ class _SqlEditorState extends State<SqlEditor> {
       stringMap: _keywords,
     );
 
+    // 添加文本变化监听器
     _codeController.addListener(() {
       widget.onChanged?.call(_codeController.text);
       _updateSuggestions();
     });
 
+    // 添加焦点监听器
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus) {
         _hideOverlay();
@@ -166,12 +196,15 @@ class _SqlEditorState extends State<SqlEditor> {
 
   @override
   void dispose() {
+    // 释放资源
     _hideOverlay();
     _codeController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
+  /// 更新自动完成建议列表
+  /// 根据当前输入的单词筛选可能的建议
   void _updateSuggestions() {
     final text = _codeController.text;
     final selection = _codeController.selection;
@@ -180,7 +213,7 @@ class _SqlEditorState extends State<SqlEditor> {
       return;
     }
 
-    // Get the current word being typed
+    // 获取当前正在输入的单词
     final beforeCursor = text.substring(0, selection.start);
     final words = beforeCursor.split(RegExp(r'[\s\n]'));
     _currentWord = words.isEmpty ? '' : words.last.toUpperCase();
@@ -190,7 +223,7 @@ class _SqlEditorState extends State<SqlEditor> {
       return;
     }
 
-    // Collect all possible suggestions
+    // 收集所有可能的建议
     final allSuggestions = [
       ..._keywords.keys,
       ..._additionalKeywords,
@@ -198,7 +231,7 @@ class _SqlEditorState extends State<SqlEditor> {
       ...widget.columns.map((c) => c.toUpperCase()),
     ];
 
-    // Filter suggestions based on current word
+    // 根据当前单词过滤建议
     _suggestions = allSuggestions
         .where((s) => s.startsWith(_currentWord) && s != _currentWord)
         .toList();
@@ -212,6 +245,7 @@ class _SqlEditorState extends State<SqlEditor> {
     _showOverlay();
   }
 
+  /// 显示自动完成菜单
   void _showOverlay() {
     _hideOverlay();
 
@@ -291,11 +325,16 @@ class _SqlEditorState extends State<SqlEditor> {
     Overlay.of(context).insert(_overlayEntry!);
   }
 
+  /// 隐藏自动完成菜单
   void _hideOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
 
+  /// 应用选中的自动完成建议
+  ///
+  /// 参数:
+  /// - [suggestion]: 要应用的建议文本
   void _applySuggestion(String suggestion) {
     final text = _codeController.text;
     final selection = _codeController.selection;
@@ -315,6 +354,11 @@ class _SqlEditorState extends State<SqlEditor> {
     _hideOverlay();
   }
 
+  /// 处理键盘事件
+  /// 处理上下键选择建议、Tab和Enter键应用建议、Esc键关闭建议菜单
+  ///
+  /// 参数:
+  /// - [event]: 键盘事件对象
   void _handleKeyEvent(RawKeyEvent event) {
     if (_overlayEntry == null) return;
 
@@ -323,7 +367,7 @@ class _SqlEditorState extends State<SqlEditor> {
         case 'Arrow Down':
           setState(() {
             _selectedIndex = (_selectedIndex + 1) % _suggestions.length;
-            // Force overlay to rebuild
+            // 强制覆盖层重建
             _overlayEntry?.markNeedsBuild();
           });
           break;
@@ -331,7 +375,7 @@ class _SqlEditorState extends State<SqlEditor> {
           setState(() {
             _selectedIndex = (_selectedIndex - 1 + _suggestions.length) %
                 _suggestions.length;
-            // Force overlay to rebuild
+            // 强制覆盖层重建
             _overlayEntry?.markNeedsBuild();
           });
           break;
@@ -346,20 +390,28 @@ class _SqlEditorState extends State<SqlEditor> {
     }
   }
 
+  /// 格式化SQL语句
+  /// 对SQL语句进行美化，添加适当的换行和缩进
+  ///
+  /// 参数:
+  /// - [sql]: 要格式化的SQL语句
+  ///
+  /// 返回:
+  /// 格式化后的SQL语句
   String _formatSql(String sql) {
     final keywords = _keywords.keys.toList();
     String formattedSql = sql.toUpperCase();
 
-    // Replace multiple spaces with a single space
+    // 替换多个空格为单个空格
     formattedSql = formattedSql.replaceAll(RegExp(r'\s+'), ' ');
 
-    // Add newlines before keywords
+    // 在关键字前添加换行
     for (final keyword in keywords) {
       formattedSql =
           formattedSql.replaceAll(RegExp(r'\s*\b$keyword\b'), '\n$keyword');
     }
 
-    // Special handling for nested queries and parentheses
+    // 处理嵌套查询和括号的特殊情况
     final lines = formattedSql.split('\n');
     final result = <String>[];
     var indentLevel = 0;
@@ -369,21 +421,21 @@ class _SqlEditorState extends State<SqlEditor> {
       line = line.trim();
       if (line.isEmpty) continue;
 
-      // Count opening and closing parentheses
+      // 计算开闭括号数量
       inParentheses += '('.allMatches(line).length;
       inParentheses -= ')'.allMatches(line).length;
 
-      // Adjust indent level based on parentheses
+      // 根据括号调整缩进级别
       if (line.startsWith(')')) {
         indentLevel = (indentLevel - 1).clamp(0, 10);
       }
 
-      // Add the line with proper indentation
+      // 添加适当缩进的行
       if (line.isNotEmpty) {
         result.add('  ' * indentLevel + line);
       }
 
-      // Increase indent level for nested queries and opening parentheses
+      // 增加嵌套查询和开括号的缩进级别
       if (line.endsWith('(') || inParentheses > 0) {
         indentLevel = (indentLevel + 1).clamp(0, 10);
       }
@@ -392,6 +444,8 @@ class _SqlEditorState extends State<SqlEditor> {
     return result.join('\n');
   }
 
+  /// 格式化代码
+  /// 尝试格式化当前编辑器中的SQL代码
   void _formatCode() {
     try {
       final formattedSql = _formatSql(_codeController.text);
@@ -410,17 +464,20 @@ class _SqlEditorState extends State<SqlEditor> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // 工具栏区域
         if (!widget.readOnly)
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
+                // 格式化按钮
                 IconButton(
                   icon: const Icon(Icons.format_align_left),
                   tooltip: '格式化 / Format',
                   onPressed: _formatCode,
                 ),
                 const Spacer(),
+                // 执行按钮
                 ElevatedButton.icon(
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('执行 / Execute'),
@@ -429,6 +486,7 @@ class _SqlEditorState extends State<SqlEditor> {
               ],
             ),
           ),
+        // 代码编辑器区域
         Expanded(
           child: CompositedTransformTarget(
             link: _layerLink,

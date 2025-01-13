@@ -11,9 +11,41 @@ class MySqlService {
 
   /// API服务器基础URL
   final String baseUrl = 'http://192.168.51.10:3000/api';
+  // final String baseUrl = 'https://yintademo.lichenbo.cn/api';
 
   /// 当前会话的认证令牌
   String? _token;
+
+  /// 测试数据库连接
+  /// 尝试连接但不保持连接状态
+  ///
+  /// 参数:
+  /// - [config]: 数据库连接配置信息
+  ///
+  /// 返回:
+  /// 如果连接成功返回true，否则抛出异常
+  Future<bool> testConnection(ConnectionConfig config) async {
+    try {
+      // 使用connect端点测试连接
+      final response =
+          await _dio.post('$baseUrl/connect', data: config.toJson());
+      if (response.statusCode == 200) {
+        // 获取临时token
+        final tempToken = response.data['token'];
+        // 立即断开连接
+        await _dio.post(
+          '$baseUrl/disconnect',
+          options: Options(
+            headers: {'Authorization': 'Bearer $tempToken'},
+          ),
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
 
   /// 连接到MySQL数据库
   ///

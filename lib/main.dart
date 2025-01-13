@@ -16,6 +16,7 @@ import 'services/database/mysql_service.dart';
 import 'services/query/query_history_service.dart';
 import 'screens/table/table_structure_screen.dart';
 import 'screens/table/table_structure_controller.dart';
+import 'services/database/connection_service.dart';
 
 /// 应用程序的入口函数
 /// 负责初始化Flutter绑定、设置依赖注入和启动应用
@@ -31,6 +32,8 @@ void main() async {
   Get.put(MySqlService());
   // 注册查询历史服务，用于管理SQL查询历史记录
   Get.put(QueryHistoryService(prefs));
+  // 注册连接配置服务，用于管理数据库连接配置
+  Get.put(ConnectionService());
 
   // 启动应用程序
   runApp(const MyApp());
