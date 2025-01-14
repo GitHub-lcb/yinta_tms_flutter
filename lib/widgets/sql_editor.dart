@@ -399,49 +399,143 @@ class _SqlEditorState extends State<SqlEditor> {
   /// 返回:
   /// 格式化后的SQL语句
   String _formatSql(String sql) {
-    final keywords = _keywords.keys.toList();
-    String formattedSql = sql.toUpperCase();
+    // 主要关键字列表
+    final mainKeywords = [
+      'SELECT',
+      'FROM',
+      'WHERE',
+      'GROUP BY',
+      'ORDER BY',
+      'HAVING',
+      'LIMIT',
+      'INSERT INTO',
+      'UPDATE',
+      'DELETE FROM',
+      'CREATE TABLE',
+      'ALTER TABLE',
+      'DROP TABLE',
+      'LEFT JOIN',
+      'RIGHT JOIN',
+      'INNER JOIN',
+      'FULL JOIN',
+      'CROSS JOIN',
+      'UNION',
+      'VALUES',
+      'SET'
+    ];
 
-    // 替换多个空格为单个空格
+    // 子句关键字列表
+    final clauseKeywords = [
+      'ON',
+      'AND',
+      'OR',
+      'WHEN',
+      'THEN',
+      'ELSE',
+      'END',
+      'CASE',
+      'NOT',
+      'IN',
+      'LIKE',
+      'BETWEEN',
+      'IS NULL',
+      'IS NOT NULL',
+      'COUNT',
+      'SUM',
+      'AVG',
+      'MAX',
+      'MIN',
+      'DISTINCT',
+      'AS'
+    ];
+
+    // 预处理SQL语句
+    String formattedSql = sql.trim();
+
+    // 统一空白字符
     formattedSql = formattedSql.replaceAll(RegExp(r'\s+'), ' ');
 
-    // 在关键字前添加换行
-    for (final keyword in keywords) {
-      formattedSql =
-          formattedSql.replaceAll(RegExp(r'\s*\b$keyword\b'), '\n$keyword');
+    // 处理运算符前后的空格
+    formattedSql = formattedSql
+        .replaceAll('=', ' = ')
+        .replaceAll('>', ' > ')
+        .replaceAll('<', ' < ')
+        .replaceAll('>=', ' >= ')
+        .replaceAll('<=', ' <= ')
+        .replaceAll('<>', ' <> ')
+        .replaceAll('!=', ' != ');
+
+    // 处理括号和逗号
+    formattedSql = formattedSql
+        .replaceAll('(', ' ( ')
+        .replaceAll(')', ' ) ')
+        .replaceAll(',', ', ');
+
+    // 分割SQL语句
+    List<String> tokens = formattedSql
+        .split(' ')
+        .where((t) => t.trim().isNotEmpty)
+        .map((t) => t.trim())
+        .toList();
+
+    StringBuffer result = StringBuffer();
+    int indentLevel = 0;
+    bool newLine = true;
+    String? lastToken;
+
+    for (int i = 0; i < tokens.length; i++) {
+      String token = tokens[i];
+      String upperToken = token.toUpperCase();
+
+      // 检查是否是主要关键字
+      bool isMainKeyword = mainKeywords.contains(upperToken);
+      if (i < tokens.length - 1 &&
+          mainKeywords
+              .contains('${upperToken} ${tokens[i + 1].toUpperCase()}')) {
+        isMainKeyword = true;
+        token = '$token ${tokens[++i]}'.toUpperCase();
+      } else if (mainKeywords.contains(upperToken)) {
+        token = upperToken;
+      }
+
+      // 处理SELECT后的字段列表
+      if (upperToken == 'SELECT') {
+        result.write('$token\n');
+        indentLevel++;
+        newLine = true;
+        continue;
+      }
+
+      // 处理FROM和其他主要关键字
+      if (isMainKeyword && upperToken != 'SELECT') {
+        if (upperToken == 'FROM') {
+          indentLevel--;
+        }
+        if (!newLine) result.write('\n');
+        result.write('$token');
+        newLine = false;
+        continue;
+      }
+
+      // 处理字段和其他内容
+      if (newLine) {
+        result.write('${'\t' * indentLevel}$token');
+        newLine = false;
+      } else {
+        if (token == ',') {
+          result.write('$token\n');
+          newLine = true;
+        } else if (lastToken == ',') {
+          result.write('${'\t' * indentLevel}$token');
+        } else {
+          result.write(' $token');
+        }
+      }
+
+      lastToken = token;
     }
 
-    // 处理嵌套查询和括号的特殊情况
-    final lines = formattedSql.split('\n');
-    final result = <String>[];
-    var indentLevel = 0;
-    var inParentheses = 0;
-
-    for (var line in lines) {
-      line = line.trim();
-      if (line.isEmpty) continue;
-
-      // 计算开闭括号数量
-      inParentheses += '('.allMatches(line).length;
-      inParentheses -= ')'.allMatches(line).length;
-
-      // 根据括号调整缩进级别
-      if (line.startsWith(')')) {
-        indentLevel = (indentLevel - 1).clamp(0, 10);
-      }
-
-      // 添加适当缩进的行
-      if (line.isNotEmpty) {
-        result.add('  ' * indentLevel + line);
-      }
-
-      // 增加嵌套查询和开括号的缩进级别
-      if (line.endsWith('(') || inParentheses > 0) {
-        indentLevel = (indentLevel + 1).clamp(0, 10);
-      }
-    }
-
-    return result.join('\n');
+    return result.toString();
   }
 
   /// 格式化代码

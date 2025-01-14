@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/connection_config.dart';
 import '../../services/database/mysql_service.dart';
 import '../../services/database/connection_service.dart';
+import '../../services/database/offline_service.dart';
 
 /// 数据库连接控制器
 /// 负责管理数据库连接界面的状态和业务逻辑
 class ConnectionController extends GetxController {
   /// MySQL服务实例，用于处理数据库连接操作
   final _mysqlService = Get.find<MySqlService>();
+
+  /// 离线模式服务实例
+  final _offlineService = Get.put(OfflineService());
 
   /// 连接配置服务实例，用于管理保存的连接配置
   final _connectionService = Get.find<ConnectionService>();
@@ -48,6 +53,9 @@ class ConnectionController extends GetxController {
 
   /// 保存的连接配置列表
   final savedConnections = <ConnectionConfig>[].obs;
+
+  /// 是否为离线模式
+  final isOfflineMode = false.obs;
 
   @override
   void onInit() {
@@ -101,6 +109,20 @@ class ConnectionController extends GetxController {
     isPasswordVisible.value = !isPasswordVisible.value;
   }
 
+  /// 切换离线模式
+  void toggleOfflineMode() {
+    if (kIsWeb) {
+      Get.snackbar(
+        '不支持 / Not Supported',
+        'Web版本不支持离线模式 / Offline mode is not supported in Web version',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red[100],
+      );
+      return;
+    }
+    isOfflineMode.value = !isOfflineMode.value;
+  }
+
   /// 创建连接配置对象
   ConnectionConfig _createConfig() {
     return ConnectionConfig(
@@ -112,6 +134,7 @@ class ConnectionController extends GetxController {
       database: databaseController.text.trim().isNotEmpty
           ? databaseController.text.trim()
           : null,
+      isOffline: !kIsWeb && isOfflineMode.value,
     );
   }
 
@@ -125,7 +148,10 @@ class ConnectionController extends GetxController {
 
     try {
       final config = _createConfig();
-      final success = await _mysqlService.testConnection(config);
+      final success = config.isOffline
+          ? await _offlineService.testConnection(config)
+          : await _mysqlService.testConnection(config);
+
       if (success) {
         Get.snackbar(
           '测试成功 / Test Success',
@@ -221,18 +247,19 @@ class ConnectionController extends GetxController {
     error.value = '';
 
     try {
-      // 创建连接配置
       final config = _createConfig();
 
-      // 尝试连接数据库
-      await _mysqlService.connect(config);
+      if (config.isOffline) {
+        await _offlineService.connect(config);
+      } else {
+        await _mysqlService.connect(config);
+      }
+
       isConnected.value = true;
 
-      // 如果指定了数据库，直接跳转到表格列表页面
       if (config.database != null) {
         Get.toNamed('/tables', arguments: config.database);
       } else {
-        // 否则跳转到数据库列表页面
         Get.toNamed('/databases');
       }
     } catch (e) {
@@ -246,7 +273,12 @@ class ConnectionController extends GetxController {
   /// 关闭当前的数据库连接并返回上一页
   Future<void> disconnect() async {
     try {
-      await _mysqlService.disconnect();
+      if (isOfflineMode.value) {
+        await _offlineService.disconnect();
+      } else {
+        await _mysqlService.disconnect();
+      }
+
       Get.snackbar(
         '断开连接 / Disconnected',
         '已成功断开连接 / Successfully disconnected',

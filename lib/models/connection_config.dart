@@ -19,6 +19,9 @@ class ConnectionConfig {
   /// 数据库名称（可选）
   final String? database;
 
+  /// 是否为离线模式
+  final bool isOffline;
+
   /// 构造函数
   /// 创建一个新的数据库连接配置实例
   ///
@@ -29,6 +32,7 @@ class ConnectionConfig {
   /// - [user]: 数据库用户名
   /// - [password]: 数据库密码
   /// - [database]: 数据库名称（可选）
+  /// - [isOffline]: 是否为离线模式（可选）
   ConnectionConfig({
     required this.name,
     required this.host,
@@ -36,6 +40,7 @@ class ConnectionConfig {
     required this.user,
     required this.password,
     this.database,
+    this.isOffline = false,
   });
 
   /// 将连接配置转换为JSON格式
@@ -56,6 +61,8 @@ class ConnectionConfig {
       json['database'] = database;
     }
 
+    json['isOffline'] = isOffline;
+
     return json;
   }
 
@@ -74,6 +81,7 @@ class ConnectionConfig {
       user: json['username'] as String,
       password: json['password'] as String,
       database: json['database'] as String?,
+      isOffline: json['isOffline'] ?? false,
     );
   }
 
@@ -104,6 +112,7 @@ class ConnectionConfig {
       user: user ?? this.user,
       password: password ?? this.password,
       database: database ?? this.database,
+      isOffline: this.isOffline,
     );
   }
 }

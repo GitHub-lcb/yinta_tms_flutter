@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import '../../models/query_history.dart';
 import '../../services/query/query_history_service.dart';
 import '../../services/database/mysql_service.dart';
+import '../../services/database/offline_service.dart';
+import '../../services/database/database_service.dart';
 
 /// 查询历史控制器
 /// 负责管理查询历史界面的状态和业务逻辑，包括查询历史的加载、搜索、执行和管理等功能
@@ -12,7 +14,10 @@ class QueryHistoryController extends GetxController {
   final QueryHistoryService _historyService;
 
   /// MySQL服务实例
-  final _mysqlService = Get.find<MySqlService>();
+  final MySqlService _mysqlService = Get.find<MySqlService>();
+
+  /// 离线服务实例
+  final OfflineService _offlineService = Get.find<OfflineService>();
 
   /// 搜索框控制器
   final searchController = TextEditingController();
@@ -23,7 +28,15 @@ class QueryHistoryController extends GetxController {
   /// 加载状态标志
   final isLoading = false.obs;
 
+  /// 错误信息
+  final error = ''.obs;
+
   QueryHistoryController(this._historyService);
+
+  /// 获取当前数据库服务
+  DatabaseService get _currentService => _offlineService.isConnected
+      ? _offlineService as DatabaseService
+      : _mysqlService as DatabaseService;
 
   @override
   void onInit() {
@@ -93,63 +106,15 @@ class QueryHistoryController extends GetxController {
   Future<void> executeQuery(QueryHistory history) async {
     try {
       print('Executing query: ${history.query}');
-      final result = await _mysqlService.executeQuery(history.query);
+
+      // 执行查询
+      final result = await _currentService.executeQuery(
+        history.database,
+        history.query,
+      );
+
       print('Raw query result type: ${result.runtimeType}');
       print('Raw query result: $result');
-
-      List<Map<String, dynamic>> resultList = [];
-      List<String> columnOrder = [];
-
-      if (result is Map<String, dynamic>) {
-        print('Processing Map result...');
-        if (result.containsKey('results')) {
-          print('Found results key');
-          final results = result['results'] as List;
-          print('Results length: ${results.length}');
-
-          if (results.isNotEmpty) {
-            print('Processing first record...');
-            final firstRecord = results.first as Map<String, dynamic>;
-            print('First record keys: ${firstRecord.keys.toList()}');
-
-            // 处理列顺序
-            if (firstRecord.containsKey('__columnOrder')) {
-              print('Found __columnOrder in first record');
-              columnOrder =
-                  List<String>.from(firstRecord['__columnOrder'] as List);
-            } else {
-              print('Using keys as column order');
-              columnOrder = firstRecord.keys
-                  .where((key) => key != '__columnOrder')
-                  .toList();
-            }
-            print('Column order: $columnOrder');
-
-            // 处理数据记录
-            resultList = results.map((item) {
-              if (item is! Map) {
-                print('Warning: item is not a Map: $item');
-                return <String, dynamic>{};
-              }
-              final record = Map<String, dynamic>.from(item);
-              record.remove('__columnOrder');
-              return record;
-            }).toList();
-
-            print('Processed ${resultList.length} records');
-          } else {
-            print('Results list is empty');
-          }
-        } else {
-          print('No results key found in response');
-          print('Available keys: ${result.keys.toList()}');
-        }
-      } else {
-        print('Result is not a Map: ${result.runtimeType}');
-      }
-
-      print('Final resultList length: ${resultList.length}');
-      print('Final columnOrder: $columnOrder');
 
       // 添加新的查询记录到历史
       await _historyService.addQuery(
@@ -158,26 +123,17 @@ class QueryHistoryController extends GetxController {
           timestamp: DateTime.now(),
           database: history.database,
           isSuccess: true,
-          rowsAffected: resultList.length,
+          rowsAffected: result['rows']?.length ?? 0,
         ),
       );
-
-      final Map<String, dynamic> formattedResult = {
-        'data': resultList,
-        'columnOrder': columnOrder,
-      };
-
-      print(
-          'Navigating to query-result with data length: ${resultList.length}');
 
       // 导航到查询结果页面
       Get.toNamed('/query-result', arguments: {
         'query': history.query,
         'data': result,
       });
-    } catch (e, stackTrace) {
-      print('Query execution error: $e');
-      print('Stack trace: $stackTrace');
+    } catch (e) {
+      print('Error executing query: $e');
       // 添加失败的查询记录到历史
       await _historyService.addQuery(
         QueryHistory(
@@ -188,6 +144,7 @@ class QueryHistoryController extends GetxController {
           rowsAffected: 0,
         ),
       );
+      error.value = e.toString();
       Get.snackbar(
         '执行失败 / Execution Failed',
         e.toString(),

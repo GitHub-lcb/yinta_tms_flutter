@@ -1,17 +1,19 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/material.dart';
 import '../../models/connection_config.dart';
+import '../../config/api_config.dart';
+import '../../utils/http_utils.dart';
+import '../../utils/file_utils.dart';
+import 'database_service.dart';
 
 /// MySQL数据库服务类
 /// 负责处理与MySQL数据库服务器的所有交互，包括连接管理、查询执行和数据导出等功能
-class MySqlService {
+class MySqlService extends GetxService implements DatabaseService {
   /// HTTP客户端实例
-  final _dio = Dio();
-
-  /// API服务器基础URL
-  final String baseUrl = 'http://192.168.51.10:3000/api';
-  // final String baseUrl = 'https://yintademo.lichenbo.cn/api';
+  final _dio = HttpUtils.createDio(ApiConfig.baseUrl);
 
   /// 当前会话的认证令牌
   String? _token;
@@ -27,14 +29,13 @@ class MySqlService {
   Future<bool> testConnection(ConnectionConfig config) async {
     try {
       // 使用connect端点测试连接
-      final response =
-          await _dio.post('$baseUrl/connect', data: config.toJson());
+      final response = await _dio.post('/connect', data: config.toJson());
       if (response.statusCode == 200) {
         // 获取临时token
         final tempToken = response.data['token'];
         // 立即断开连接
         await _dio.post(
-          '$baseUrl/disconnect',
+          '/disconnect',
           options: Options(
             headers: {'Authorization': 'Bearer $tempToken'},
           ),
@@ -43,7 +44,7 @@ class MySqlService {
       }
       return false;
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -56,11 +57,10 @@ class MySqlService {
   /// 如果连接失败，将抛出异常
   Future<void> connect(ConnectionConfig config) async {
     try {
-      final response =
-          await _dio.post('$baseUrl/connect', data: config.toJson());
+      final response = await _dio.post('/connect', data: config.toJson());
       _token = response.data['token'];
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -72,7 +72,7 @@ class MySqlService {
   Future<void> disconnect() async {
     try {
       await _dio.post(
-        '$baseUrl/disconnect',
+        '/disconnect',
         options: Options(
           headers: {'Authorization': 'Bearer $_token'},
         ),
@@ -87,7 +87,7 @@ class MySqlService {
           return;
         }
       }
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -102,7 +102,7 @@ class MySqlService {
     try {
       print('Fetching databases with token: $_token');
       final response = await _dio.get(
-        '$baseUrl/databases',
+        '/databases',
         options: Options(
           headers: {'Authorization': 'Bearer $_token'},
         ),
@@ -116,7 +116,7 @@ class MySqlService {
       throw Exception('Unexpected response format: ${response.data}');
     } catch (e) {
       print('Error fetching databases: $e');
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -130,14 +130,14 @@ class MySqlService {
   Future<void> selectDatabase(String database) async {
     try {
       await _dio.post(
-        '$baseUrl/select-database',
+        '/select-database',
         data: {'database': database},
         options: Options(
           headers: {'Authorization': 'Bearer $_token'},
         ),
       );
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -157,7 +157,7 @@ class MySqlService {
       print('Using token: $_token');
 
       final response = await _dio.get(
-        '$baseUrl/tables',
+        '/tables',
         queryParameters: {'database': database},
         options: Options(
           headers: {'Authorization': 'Bearer $_token'},
@@ -187,13 +187,14 @@ class MySqlService {
         print('DioError response: ${e.response?.data}');
         print('DioError stacktrace: ${e.stackTrace}');
       }
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
   /// 执行SQL查询
   ///
   /// 参数:
+  /// - [database]: 数据库名称
   /// - [query]: SQL查询语句
   ///
   /// 返回:
@@ -201,12 +202,16 @@ class MySqlService {
   ///
   /// 异常:
   /// 如果查询执行失败，将抛出异常
-  Future<Map<String, dynamic>> executeQuery(String query) async {
+  Future<Map<String, dynamic>> executeQuery(
+      String database, String query) async {
     try {
-      print('Executing query: $query');
+      print('Executing query on database $database: $query');
       final response = await _dio.post(
-        '$baseUrl/query',
-        data: {'query': query},
+        '/query',
+        data: {
+          'database': database,
+          'query': query,
+        },
         options: Options(
           headers: {'Authorization': 'Bearer $_token'},
           validateStatus: (status) => true,
@@ -224,8 +229,45 @@ class MySqlService {
             'Server returned ${response.statusCode}: ${response.data}');
       }
 
+      // 统一返回格式
       if (response.data is Map) {
-        return response.data as Map<String, dynamic>;
+        final data = response.data as Map<String, dynamic>;
+        // 如果是DDL语句的结果
+        if (data['affectedRows'] != null) {
+          return {
+            'columns': ['Affected Rows'],
+            'rows': [
+              [data['affectedRows']]
+            ],
+          };
+        }
+        // 如果是查询结果
+        if (data['results'] is List) {
+          if (data['results'].isEmpty) {
+            return {
+              'columns': [],
+              'rows': [],
+            };
+          }
+          // 从第一行数据中提取列名
+          final firstRow = data['results'][0] as Map<String, dynamic>;
+          final allColumns = firstRow.keys.toList();
+
+          // 过滤掉内部字段（以下划线开头的字段）
+          final columns = allColumns
+              .where((col) => !col.toString().startsWith('_'))
+              .toList();
+
+          // 构建行数据
+          final rows = (data['results'] as List).map((row) {
+            return columns.map((col) => row[col]).toList();
+          }).toList();
+
+          return {
+            'columns': columns,
+            'rows': rows,
+          };
+        }
       }
 
       throw Exception('Unexpected response format: ${response.data}');
@@ -237,22 +279,15 @@ class MySqlService {
         print('DioError response: ${e.response?.data}');
         print('DioError stacktrace: ${e.stackTrace}');
       }
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
   /// 将查询结果导出为Excel文件
-  ///
-  /// 参数:
-  /// - [query]: SQL查询语句
-  /// - [filename]: 导出文件名
-  ///
-  /// 异常:
-  /// 如果导出失败，将抛出异常
   Future<void> exportToExcel(String query, String filename) async {
     try {
       final response = await _dio.post(
-        '$baseUrl/export/excel',
+        '/export/excel',
         data: {
           'query': query,
           'filename': filename,
@@ -263,42 +298,22 @@ class MySqlService {
         ),
       );
 
-      // 从Content-Disposition头部获取文件名
-      final contentDisposition = response.headers.value('content-disposition');
-      String downloadFilename = filename;
-      if (contentDisposition != null) {
-        final match = RegExp('filename=(.+)').firstMatch(contentDisposition);
-        if (match != null) {
-          downloadFilename = Uri.decodeComponent(match.group(1)!);
-        }
-      }
-
-      // 获取应用文档目录
-      final dir = await getApplicationDocumentsDirectory();
-      final filePath = '${dir.path}/$downloadFilename';
-
-      // 写入文件
-      final file = File(filePath);
-      await file.writeAsBytes(response.data);
-
-      print('File saved to: $filePath');
+      await FileUtils.saveOrShareFile(
+        response.data,
+        filename,
+        allowedExtensions: ['xlsx'],
+        dialogTitle: '选择保存位置',
+      );
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
   /// 将查询结果导出为CSV文件
-  ///
-  /// 参数:
-  /// - [query]: SQL查询语句
-  /// - [filename]: 导出文件名
-  ///
-  /// 异常:
-  /// 如果导出失败，将抛出异常
   Future<void> exportToCsv(String query, String filename) async {
     try {
       final response = await _dio.post(
-        '$baseUrl/export/csv',
+        '/export/csv',
         data: {
           'query': query,
           'filename': filename,
@@ -309,27 +324,14 @@ class MySqlService {
         ),
       );
 
-      // 从Content-Disposition头部获取文件名
-      final contentDisposition = response.headers.value('content-disposition');
-      String downloadFilename = filename;
-      if (contentDisposition != null) {
-        final match = RegExp('filename=(.+)').firstMatch(contentDisposition);
-        if (match != null) {
-          downloadFilename = Uri.decodeComponent(match.group(1)!);
-        }
-      }
-
-      // 获取应用文档目录
-      final dir = await getApplicationDocumentsDirectory();
-      final filePath = '${dir.path}/$downloadFilename';
-
-      // 写入文件
-      final file = File(filePath);
-      await file.writeAsBytes(response.data);
-
-      print('File saved to: $filePath');
+      await FileUtils.saveOrShareFile(
+        response.data,
+        filename,
+        allowedExtensions: ['csv'],
+        dialogTitle: '选择保存位置',
+      );
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -348,7 +350,7 @@ class MySqlService {
       String database, String table) async {
     try {
       final response = await _dio.get(
-        '$baseUrl/table-structure',
+        '/table-structure',
         queryParameters: {
           'database': database,
           'table': table,
@@ -371,7 +373,7 @@ class MySqlService {
       }
       throw Exception('Unexpected response format: ${response.data}');
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -379,7 +381,7 @@ class MySqlService {
       String database, String table) async {
     try {
       final response = await _dio.get(
-        '$baseUrl/table-indexes',
+        '/table-indexes',
         queryParameters: {
           'database': database,
           'table': table,
@@ -402,14 +404,14 @@ class MySqlService {
       }
       throw Exception('Unexpected response format: ${response.data}');
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
   Future<void> alterTable(String database, String table, String sql) async {
     try {
       final response = await _dio.post(
-        '$baseUrl/alter-table',
+        '/alter-table',
         data: {
           'database': database,
           'table': table,
@@ -425,7 +427,7 @@ class MySqlService {
         throw Exception(response.data['message'] ?? 'Failed to alter table');
       }
     } catch (e) {
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
   }
 
@@ -454,7 +456,7 @@ class MySqlService {
   }) async {
     try {
       final response = await _dio.get(
-        '$baseUrl/table-data',
+        '/table-data',
         queryParameters: {
           'database': database,
           'table': table,
@@ -481,43 +483,7 @@ class MySqlService {
       throw Exception('Unexpected response format: ${response.data}');
     } catch (e) {
       print('Error getting table data: $e');
-      throw _handleError(e);
+      throw HttpUtils.handleError(e);
     }
-  }
-
-  /// 处理错误信息
-  /// 将各种类型的错误转换为统一的异常格式
-  ///
-  /// 参数:
-  /// - [error]: 原始错误对象
-  ///
-  /// 返回:
-  /// 格式化后的异常对象
-  Exception _handleError(dynamic error) {
-    if (error is DioException) {
-      // 处理网络请求错误
-      if (error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.sendTimeout ||
-          error.type == DioExceptionType.receiveTimeout) {
-        return Exception('连接超时，请检查网络连接');
-      }
-
-      if (error.response?.data is Map &&
-          error.response?.data['message'] != null) {
-        return Exception(error.response?.data['message']);
-      }
-
-      if (error.type == DioExceptionType.unknown) {
-        return Exception('网络连接错误，请检查网络连接');
-      }
-
-      return Exception('请求失败: ${error.message}');
-    }
-
-    if (error is Exception) {
-      return error;
-    }
-
-    return Exception('发生未知错误: $error');
   }
 }

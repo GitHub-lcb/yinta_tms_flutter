@@ -1,9 +1,14 @@
 server:
-  port: 3000
+  port: 8080
 
 spring:
   application:
     name: mysql-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mysql?useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
 
 jwt:
   secret: your-secret-key
@@ -12,3 +17,8 @@ jwt:
 logging:
   level:
     com.yinta: DEBUG 
+
+app:
+  version: 1.0.0
+  download:
+    base-url: http://localhost:8080/downloads 

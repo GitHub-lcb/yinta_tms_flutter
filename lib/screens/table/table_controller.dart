@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../models/query_history.dart';
 import '../../services/database/mysql_service.dart';
+import '../../services/database/offline_service.dart';
 import '../../services/query/query_history_service.dart';
 import '../../widgets/sql_editor.dart';
 
@@ -10,6 +11,9 @@ import '../../widgets/sql_editor.dart';
 class TableController extends GetxController {
   /// MySQL服务实例
   final _mysqlService = Get.find<MySqlService>();
+
+  /// 离线服务实例
+  final _offlineService = Get.find<OfflineService>();
 
   /// 数据表列表
   final tables = <String>[].obs;
@@ -26,6 +30,10 @@ class TableController extends GetxController {
   /// 当前选中的数据库名称
   late final String databaseName;
 
+  /// 获取当前服务实例
+  dynamic get _currentService =>
+      _offlineService.isConnected ? _offlineService : _mysqlService as dynamic;
+
   @override
   void onInit() {
     super.onInit();
@@ -41,8 +49,10 @@ class TableController extends GetxController {
     error.value = '';
 
     try {
-      // 获取表列表
-      final result = await _mysqlService.getTables(databaseName);
+      final service = _offlineService.isConnected
+          ? _offlineService
+          : _mysqlService as dynamic;
+      final result = await service.getTables(databaseName);
       tables.value = result;
 
       // 加载所有表的列信息
@@ -50,10 +60,14 @@ class TableController extends GetxController {
       for (final table in tables) {
         try {
           final structure =
-              await _mysqlService.getTableStructure(databaseName, table);
-          columns.addAll(structure
-              .map((col) => col['Field'] as String? ?? '')
-              .where((col) => col.isNotEmpty));
+              await service.getTableStructure(databaseName, table);
+          columns.addAll(
+            structure
+                .map((col) => '$table.${col['Field']?.toString() ?? ''}')
+                .where((col) => col.isNotEmpty && col.contains('.'))
+                .cast<String>()
+                .toList(),
+          );
         } catch (e) {
           print('Error loading columns for table $table: $e');
         }
@@ -98,61 +112,8 @@ class TableController extends GetxController {
   /// 显示SQL查询对话框
   /// 打开一个包含SQL编辑器的对话框，用于执行自定义SQL查询
   Future<void> showQueryDialog() async {
-    final queryController = TextEditingController();
-    String query = '';
-
-    // 显示SQL编辑器对话框
-    final result = await Get.dialog<bool>(
-      AlertDialog(
-        title: const Text('执行 SQL 查询 / Execute SQL Query'),
-        content: SizedBox(
-          width: 800,
-          height: 400,
-          child: SqlEditor(
-            onChanged: (value) => query = value,
-            onExecute: () => Get.back(result: true),
-            tables: tables,
-            columns: columns,
-          ),
-        ),
-      ),
-    );
-
-    // 如果用户点击了执行按钮
-    if (result == true) {
-      try {
-        // 执行SQL查询
-        final queryResult = await _mysqlService.executeQuery(query);
-        final historyService = Get.find<QueryHistoryService>();
-        // 添加成功的查询记录到历史
-        await historyService.addQuery(
-          QueryHistory(
-            query: query,
-            timestamp: DateTime.now(),
-            database: databaseName,
-            isSuccess: true,
-            rowsAffected: queryResult.length,
-          ),
-        );
-        // 导航到查询结果页面
-        Get.toNamed('/query-result', arguments: {
-          'query': query,
-          'data': queryResult,
-        });
-      } catch (e) {
-        final historyService = Get.find<QueryHistoryService>();
-        // 添加失败的查询记录到历史
-        await historyService.addQuery(
-          QueryHistory(
-            query: query,
-            timestamp: DateTime.now(),
-            database: databaseName,
-            isSuccess: false,
-            rowsAffected: 0,
-          ),
-        );
-        error.value = e.toString();
-      }
-    }
+    Get.toNamed('/query', arguments: {
+      'database': databaseName,
+    });
   }
 }

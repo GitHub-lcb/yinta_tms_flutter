@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../services/database/mysql_service.dart';
+import '../../services/database/offline_service.dart';
 import '../../services/query/query_history_service.dart';
 import '../../models/query_history.dart';
 
@@ -9,6 +10,9 @@ import '../../models/query_history.dart';
 class TableDataController extends GetxController {
   /// MySQL服务实例
   final _mysqlService = Get.find<MySqlService>();
+
+  /// 离线服务实例
+  final _offlineService = Get.find<OfflineService>();
 
   /// 搜索框控制器
   final searchController = TextEditingController();
@@ -49,6 +53,10 @@ class TableDataController extends GetxController {
   /// 当前表名
   late final String tableName;
 
+  /// 获取当前服务实例
+  dynamic get _currentService =>
+      _offlineService.isConnected ? _offlineService : _mysqlService as dynamic;
+
   @override
   void onInit() {
     super.onInit();
@@ -73,71 +81,53 @@ class TableDataController extends GetxController {
     error.value = '';
 
     try {
-      // 构建带有分页、排序和筛选的查询语句
-      var query = 'SELECT * FROM `$databaseName`.`$tableName`';
-
-      // 添加筛选条件
+      // 先获取总记录数
+      String countQuery =
+          'SELECT COUNT(*) as total FROM `$databaseName`.`$tableName`';
       if (filterConditions.isNotEmpty) {
-        final conditions = filterConditions.entries.map((entry) {
-          return "`${entry.key}` LIKE '%${entry.value}%'";
-        }).join(' OR ');
+        final conditions = filterConditions.entries
+            .map((e) => "`${e.key}` LIKE '%${e.value}%'")
+            .join(' AND ');
+        countQuery += ' WHERE $conditions';
+      }
+      final countResult =
+          await _currentService.executeQuery(databaseName, countQuery);
+      final total = (countResult['rows']?[0][0] as num?)?.toInt() ?? 0;
+      totalPages.value = (total / pageSize.value).ceil();
+
+      // 构建分页查询
+      String query = 'SELECT * FROM `$databaseName`.`$tableName`';
+      if (filterConditions.isNotEmpty) {
+        final conditions = filterConditions.entries
+            .map((e) => "`${e.key}` LIKE '%${e.value}%'")
+            .join(' AND ');
         query += ' WHERE $conditions';
       }
 
-      // 添加排序条件
       if (sortColumn.isNotEmpty) {
         query +=
             ' ORDER BY `${sortColumn.value}` ${sortAscending.value ? 'ASC' : 'DESC'}';
       }
 
-      // 添加分页条件
+      // 添加分页
       final offset = currentPage.value * pageSize.value;
       query += ' LIMIT ${pageSize.value} OFFSET $offset';
 
-      // 执行查询
-      final result = await _mysqlService.executeQuery(query);
+      final result = await _currentService.executeQuery(databaseName, query);
 
-      if (result != null && result['results'] != null) {
-        final resultsList = result['results'] as List;
-        if (resultsList.isNotEmpty) {
-          // 从第一条记录的__columnOrder获取列顺序（如果有的话）
-          final firstRecord = resultsList.first as Map<String, dynamic>;
-          if (firstRecord.containsKey('__columnOrder')) {
-            columns.value =
-                List<String>.from(firstRecord['__columnOrder'] as List);
-          } else {
-            columns.value = firstRecord.keys
-                .where((key) => key != '__columnOrder')
-                .toList();
-          }
-
-          // 处理记录数据
-          data.value = resultsList.map((item) {
-            final record = Map<String, dynamic>.from(item as Map);
-            record.remove('__columnOrder');
-            return record;
-          }).toList();
-        } else {
-          data.clear();
-          columns.clear();
-        }
-      } else {
-        data.clear();
-        columns.clear();
+      if (result['columns'] != null) {
+        columns.value = List<String>.from(result['columns']);
       }
 
-      // 获取总记录数用于分页
-      final countResult = await _mysqlService.executeQuery(
-        'SELECT COUNT(*) as total FROM `$databaseName`.`$tableName`',
-      );
-
-      if (countResult != null && countResult['results'] != null) {
-        final countData = countResult['results'] as List;
-        final totalCount =
-            countData.isNotEmpty ? (countData.first['total'] as int? ?? 0) : 0;
-        totalPages.value = (totalCount / pageSize.value).ceil();
-      } else {
-        totalPages.value = 1;
+      if (result['rows'] != null) {
+        final rows = result['rows'] as List;
+        data.value = rows.map((row) {
+          final map = <String, dynamic>{};
+          for (var i = 0; i < columns.length; i++) {
+            map[columns[i]] = row[i];
+          }
+          return map;
+        }).toList();
       }
     } catch (e) {
       error.value = e.toString();
@@ -379,7 +369,7 @@ class TableDataController extends GetxController {
           VALUES ($values)
         ''';
 
-        await _mysqlService.executeQuery(query);
+        await _currentService.executeQuery(query);
         loadData(); // Reload data after insert
       } catch (e) {
         error.value = e.toString();
@@ -462,7 +452,7 @@ class TableDataController extends GetxController {
           WHERE `$primaryKey` = ${primaryKeyValue is String ? "'$primaryKeyValue'" : primaryKeyValue}
         ''';
 
-        await _mysqlService.executeQuery(query);
+        await _currentService.executeQuery(query);
         loadData(); // Reload data after update
       } catch (e) {
         error.value = e.toString();
@@ -527,7 +517,7 @@ class TableDataController extends GetxController {
                       WHERE `$primaryKey` = ${primaryKeyValue is String ? "'$primaryKeyValue'" : primaryKeyValue}
                     ''';
 
-                    await _mysqlService.executeQuery(query);
+                    await _currentService.executeQuery(query);
                     loadData(); // Reload data after delete
                   } catch (e) {
                     error.value = e.toString();
@@ -560,7 +550,7 @@ class TableDataController extends GetxController {
             ' ORDER BY `${sortColumn.value}` ${sortAscending.value ? 'ASC' : 'DESC'}';
       }
 
-      await _mysqlService.exportToExcel(
+      await _currentService.exportToExcel(
         query,
         '${tableName}_${DateTime.now().toString().replaceAll(RegExp(r'[^\w]'), '_')}.xlsx',
       );
@@ -588,7 +578,7 @@ class TableDataController extends GetxController {
             ' ORDER BY `${sortColumn.value}` ${sortAscending.value ? 'ASC' : 'DESC'}';
       }
 
-      await _mysqlService.exportToCsv(
+      await _currentService.exportToCsv(
         query,
         '${tableName}_${DateTime.now().toString().replaceAll(RegExp(r'[^\w]'), '_')}.csv',
       );
@@ -599,7 +589,7 @@ class TableDataController extends GetxController {
 
   Future<void> executeQuery(String query) async {
     try {
-      final result = await _mysqlService.executeQuery(query);
+      final result = await _currentService.executeQuery(query);
       final historyService = Get.find<QueryHistoryService>();
       await historyService.addQuery(
         QueryHistory(

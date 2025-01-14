@@ -17,6 +17,7 @@ class TableScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('$databaseName / Tables'),
+        elevation: 0,
         actions: [
           // 查询历史按钮
           IconButton(
@@ -27,6 +28,7 @@ class TableScreen extends StatelessWidget {
           // 刷新按钮
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: '刷新 / Refresh',
             onPressed: controller.loadTables,
           ),
         ],
@@ -43,15 +45,25 @@ class TableScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red[300],
+                ),
+                const SizedBox(height: 16),
                 Text(
                   controller.error.value,
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 16,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重试 / Retry'),
                   onPressed: controller.loadTables,
-                  child: const Text('重试 / Retry'),
                 ),
               ],
             ),
@@ -60,43 +72,121 @@ class TableScreen extends StatelessWidget {
 
         // 显示空数据提示
         if (controller.tables.isEmpty) {
-          return const Center(
-            child: Text('没有找到表格 / No tables found'),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.table_chart_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '没有找到表格 / No tables found',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           );
         }
 
         // 显示表格列表
         return ListView.builder(
+          padding: const EdgeInsets.all(16),
           itemCount: controller.tables.length,
           itemBuilder: (context, index) {
             final table = controller.tables[index];
-            return ListTile(
-              leading: const Icon(Icons.table_chart),
-              title: Text(table),
-              onTap: () => controller.selectTable(table),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 查看表数据按钮
-                  IconButton(
-                    icon: const Icon(Icons.visibility),
-                    onPressed: () => controller.viewTableData(table),
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              elevation: 2,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => controller.selectTable(table),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      // 表格图标
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer
+                              .withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.table_chart,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // 表格名称
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              table,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '点击查看详情 / Click to view details',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 操作按钮
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 查看表数据按钮
+                          IconButton(
+                            icon: Icon(
+                              Icons.visibility,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            tooltip: '查看数据 / View Data',
+                            onPressed: () => controller.viewTableData(table),
+                          ),
+                          // 编辑表结构按钮
+                          IconButton(
+                            icon: Icon(
+                              Icons.edit,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                            tooltip: '编辑结构 / Edit Structure',
+                            onPressed: () => controller.editTable(table),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  // 编辑表结构按钮
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => controller.editTable(table),
-                  ),
-                ],
+                ),
               ),
             );
           },
         );
       }),
       // SQL查询悬浮按钮
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: controller.showQueryDialog,
-        child: const Icon(Icons.code),
+        icon: const Icon(Icons.code),
+        label: const Text('SQL 查询 / Query'),
         tooltip: '执行 SQL 查询 / Execute SQL Query',
       ),
     );

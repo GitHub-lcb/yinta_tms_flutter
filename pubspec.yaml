@@ -45,6 +45,11 @@ dependencies:
   flutter_highlight: ^0.7.0
   code_text_field: ^1.1.0
   highlight: ^0.7.0
+  excel: ^4.0.2
+  csv: ^5.1.1
+  file_picker: ^6.1.1
+  share_plus: ^7.2.1
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:

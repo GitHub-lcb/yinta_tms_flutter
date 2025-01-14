@@ -10,7 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.Connection;
+import javax.annotation.Resource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +22,11 @@ import java.util.Map;
 @CrossOrigin
 public class DatabaseController {
 
-    private final DatabaseService databaseService;
-    private final JwtService jwtService;
+    @Resource
+    private DatabaseService databaseService;
+
+    @Resource
+    private JwtService jwtService;
 
     @PostMapping("/connect")
     public ResponseEntity<?> connect(@RequestBody DatabaseConfig config) {

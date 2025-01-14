@@ -9,9 +9,12 @@ class TableDataScreen extends GetView<TableDataController> {
 
   @override
   Widget build(BuildContext context) {
+    final scrollController = ScrollController();
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${controller.tableName}'),
+        elevation: 0,
         actions: [
           // 导出按钮
           IconButton(
@@ -54,17 +57,55 @@ class TableDataScreen extends GetView<TableDataController> {
         // 显示错误信息
         if (controller.error.isNotEmpty) {
           return Center(
-            child: Text(
-              controller.error.value,
-              style: const TextStyle(color: Colors.red),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red[300],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  controller.error.value,
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重试 / Retry'),
+                  onPressed: controller.loadData,
+                ),
+              ],
             ),
           );
         }
 
         // 显示空数据提示
         if (controller.data.isEmpty) {
-          return const Center(
-            child: Text('没有数据 / No data'),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.table_rows_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '没有数据 / No data',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           );
         }
 
@@ -72,77 +113,195 @@ class TableDataScreen extends GetView<TableDataController> {
         return Column(
           children: [
             // 搜索和分页大小选择区域
-            Padding(
-              padding: const EdgeInsets.all(8.0),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
                   // 搜索框
                   Expanded(
                     child: TextField(
                       controller: controller.searchController,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search),
                         hintText: '搜索 / Search',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 2,
+                          ),
+                        ),
                       ),
                       onChanged: controller.onSearchChanged,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 16),
                   // 每页记录数选择下拉框
-                  DropdownButton<int>(
-                    value: controller.pageSize.value,
-                    items: [10, 20, 50, 100].map((size) {
-                      return DropdownMenuItem<int>(
-                        value: size,
-                        child: Text('$size / 页'),
-                      );
-                    }).toList(),
-                    onChanged: controller.onPageSizeChanged,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Theme.of(context).dividerColor,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: controller.pageSize.value,
+                        items: [10, 20, 50, 100].map((size) {
+                          return DropdownMenuItem<int>(
+                            value: size,
+                            child: Text('$size / 页'),
+                          );
+                        }).toList(),
+                        onChanged: controller.onPageSizeChanged,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+
             // 数据表格区域
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(
-                  child: DataTable(
-                    // 表头列
-                    columns: controller.columns.map((column) {
-                      return DataColumn(
-                        label: Text(column),
-                        onSort: (columnIndex, ascending) {
-                          controller.onSort(column, ascending);
-                        },
+              child: Card(
+                margin: const EdgeInsets.all(16),
+                elevation: 2,
+                clipBehavior: Clip.antiAlias,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      scrollController.position.moveTo(
+                        scrollController.position.pixels - details.delta.dx,
                       );
-                    }).toList(),
-                    // 数据行
-                    rows: controller.data.map((row) {
-                      return DataRow(
-                        cells: controller.columns.map((column) {
-                          return DataCell(
-                            Text(row[column]?.toString() ?? 'NULL'),
-                            onTap: () => controller.showEditDialog(row, column),
-                          );
-                        }).toList(),
-                        onLongPress: () => controller.showRowActions(row),
-                      );
-                    }).toList(),
+                    },
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      child: SingleChildScrollView(
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            dataTableTheme: DataTableThemeData(
+                              headingRowColor: MaterialStateProperty.all(
+                                Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                    .withOpacity(0.1),
+                              ),
+                              dataRowColor: MaterialStateProperty.resolveWith(
+                                (states) {
+                                  if (states.contains(MaterialState.hovered)) {
+                                    return Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer
+                                        .withOpacity(0.05);
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ),
+                          child: DataTable(
+                            // 表头列
+                            columns: controller.columns.map((column) {
+                              return DataColumn(
+                                label: Text(
+                                  column,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                onSort: (columnIndex, ascending) {
+                                  controller.onSort(column, ascending);
+                                },
+                              );
+                            }).toList(),
+                            // 数据行
+                            rows: controller.data.map((row) {
+                              return DataRow(
+                                cells: controller.columns.map((column) {
+                                  return DataCell(
+                                    Text(
+                                      row[column]?.toString() ?? 'NULL',
+                                      style: TextStyle(
+                                        color: row[column] == null
+                                            ? Colors.grey[500]
+                                            : null,
+                                        fontStyle: row[column] == null
+                                            ? FontStyle.italic
+                                            : null,
+                                      ),
+                                    ),
+                                    onTap: () =>
+                                        controller.showEditDialog(row, column),
+                                  );
+                                }).toList(),
+                                onLongPress: () =>
+                                    controller.showRowActions(row),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
+
             // 分页控制区域
-            Padding(
-              padding: const EdgeInsets.all(8.0),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // 首页按钮
                   IconButton(
                     icon: const Icon(Icons.first_page),
+                    tooltip: '首页 / First Page',
                     onPressed: controller.currentPage.value > 0
                         ? controller.firstPage
                         : null,
@@ -150,16 +309,33 @@ class TableDataScreen extends GetView<TableDataController> {
                   // 上一页按钮
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
+                    tooltip: '上一页 / Previous Page',
                     onPressed: controller.currentPage.value > 0
                         ? controller.previousPage
                         : null,
                   ),
                   // 页码显示
-                  Text(
-                      '${controller.currentPage.value + 1} / ${controller.totalPages.value}'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${controller.currentPage.value + 1} / ${controller.totalPages.value}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                   // 下一页按钮
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
+                    tooltip: '下一页 / Next Page',
                     onPressed: controller.currentPage.value <
                             controller.totalPages.value - 1
                         ? controller.nextPage
@@ -168,6 +344,7 @@ class TableDataScreen extends GetView<TableDataController> {
                   // 末页按钮
                   IconButton(
                     icon: const Icon(Icons.last_page),
+                    tooltip: '末页 / Last Page',
                     onPressed: controller.currentPage.value <
                             controller.totalPages.value - 1
                         ? controller.lastPage
@@ -197,17 +374,26 @@ class TableDataScreen extends GetView<TableDataController> {
           children: [
             // 导出为Excel选项
             ListTile(
-              leading: const Icon(Icons.table_chart),
+              leading: Icon(
+                Icons.table_chart,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               title: const Text('Excel'),
+              subtitle: const Text('导出为Excel表格文件 / Export as Excel file'),
               onTap: () {
                 Get.back();
                 controller.exportToExcel();
               },
             ),
+            const Divider(),
             // 导出为CSV选项
             ListTile(
-              leading: const Icon(Icons.description),
+              leading: Icon(
+                Icons.description,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
               title: const Text('CSV'),
+              subtitle: const Text('导出为CSV文本文件 / Export as CSV file'),
               onTap: () {
                 Get.back();
                 controller.exportToCsv();

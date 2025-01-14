@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../services/database/mysql_service.dart';
+import '../../services/database/offline_service.dart';
 
 /// 表结构控制器
 /// 负责管理表结构界面的状态和业务逻辑，包括查看和修改表结构、管理索引等功能
 class TableStructureController extends GetxController {
   /// MySQL服务实例
   final _mysqlService = Get.find<MySqlService>();
+
+  /// 离线服务实例
+  final _offlineService = Get.find<OfflineService>();
 
   /// 表字段列表
   final columns = <Map<String, dynamic>>[].obs;
@@ -26,6 +30,10 @@ class TableStructureController extends GetxController {
   /// 当前表名
   late final String tableName;
 
+  /// 获取当前服务实例
+  dynamic get _currentService =>
+      _offlineService.isConnected ? _offlineService : _mysqlService as dynamic;
+
   @override
   void onInit() {
     super.onInit();
@@ -44,14 +52,14 @@ class TableStructureController extends GetxController {
 
     try {
       // 获取表字段结构
-      final structureResult = await _mysqlService.getTableStructure(
+      final structureResult = await _currentService.getTableStructure(
         databaseName,
         tableName,
       );
       columns.value = structureResult;
 
       // 获取表索引信息
-      final indexesResult = await _mysqlService.getTableIndexes(
+      final indexesResult = await _currentService.getTableIndexes(
         databaseName,
         tableName,
       );
@@ -172,7 +180,7 @@ class TableStructureController extends GetxController {
         ''';
 
         // 执行修改表结构的操作
-        await _mysqlService.alterTable(databaseName, tableName, sql);
+        await _currentService.alterTable(databaseName, tableName, sql);
         await loadStructure();
         Get.snackbar(
           '成功 / Success',
@@ -303,7 +311,7 @@ class TableStructureController extends GetxController {
         ''';
 
         // 执行修改表结构的操作
-        await _mysqlService.alterTable(databaseName, tableName, sql);
+        await _currentService.alterTable(databaseName, tableName, sql);
         await loadStructure();
         Get.snackbar(
           '成功 / Success',
@@ -334,7 +342,7 @@ class TableStructureController extends GetxController {
       ''';
 
       // 执行删除字段操作
-      await _mysqlService.alterTable(databaseName, tableName, sql);
+      await _currentService.alterTable(databaseName, tableName, sql);
       await loadStructure();
       Get.snackbar(
         '成功 / Success',
@@ -484,7 +492,7 @@ class TableStructureController extends GetxController {
           ADD ${isUnique ? 'UNIQUE' : ''} INDEX `${nameController.text}` (${selectedColumns.map((col) => '`$col`').join(', ')})
         ''';
 
-        await _mysqlService.alterTable(databaseName, tableName, sql);
+        await _currentService.alterTable(databaseName, tableName, sql);
         await loadStructure();
         Get.snackbar(
           '成功 / Success',
@@ -537,7 +545,7 @@ class TableStructureController extends GetxController {
           DROP INDEX `${index['Key_name']}`
         ''';
 
-        await _mysqlService.alterTable(databaseName, tableName, sql);
+        await _currentService.alterTable(databaseName, tableName, sql);
         await loadStructure();
         Get.snackbar(
           '成功 / Success',
