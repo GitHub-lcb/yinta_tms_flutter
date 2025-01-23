@@ -83,16 +83,18 @@ public class DatabaseController {
     @GetMapping("/tables")
     public ResponseEntity<?> getTables(
             @RequestHeader("Authorization") String authHeader,
-            @RequestParam String database) {
+            @RequestParam String database,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer limit) {
         try {
-            log.info("Getting tables for database: {}", database);
+            log.info("Getting tables for database: {}, offset: {}, limit: {}", database, offset, limit);
             String token = authHeader.substring(7);
             String connectionId = jwtService.getConnectionIdFromToken(token);
             log.info("Connection ID: {}", connectionId);
             
-            List<String> tables = databaseService.getTables(connectionId, database);
-            log.info("Found {} tables", tables.size());
-            return ResponseEntity.ok(tables);
+            Map<String, Object> result = databaseService.getTables(connectionId, database, offset, limit);
+            log.info("Found {} tables", result.get("total"));
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error getting tables for database: " + database, e);
             Map<String, String> errorResponse = new HashMap<>();
@@ -192,17 +194,50 @@ public class DatabaseController {
         }
     }
 
-    @PostMapping("/alter-table")
-    public ResponseEntity<?> alterTable(
+    /// 获取建表语句端点
+    /// 获取指定表的建表语句
+    ///
+    /// @param authHeader 认证头部
+    /// @param database 数据库名称
+    /// @param table 表名
+    /// @return ResponseEntity<?> 包含建表语句的响应
+    @GetMapping("/create-table-statement")
+    public ResponseEntity<?> getCreateTableStatement(
             @RequestHeader("Authorization") String authHeader,
-            @RequestBody Map<String, Object> request) {
+            @RequestParam String database,
+            @RequestParam String table) {
         try {
             String token = authHeader.substring(7);
             String connectionId = jwtService.getConnectionIdFromToken(token);
-            String database = (String) request.get("database");
-            String table = (String) request.get("table");
-            String alterSql = (String) request.get("alterSql");
+            String createTableStatement = databaseService.getCreateTableStatement(connectionId, database, table);
             
+            Map<String, String> response = new HashMap<>();
+            response.put("statement", createTableStatement);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error getting create table statement", e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(errorResponse);
+        }
+    }
+
+    @PostMapping("/alter-table")
+    public ResponseEntity<?> alterTable(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody Map<String, String> request) {
+        try {
+            String token = authHeader.substring(7);
+            String connectionId = jwtService.getConnectionIdFromToken(token);
+            String database = request.get("database");
+            String table = request.get("table");
+            String alterSql = request.get("alterSql");
+
+            if (database == null || table == null || alterSql == null) {
+                throw new IllegalArgumentException("Missing required parameters");
+            }
+
             databaseService.alterTable(connectionId, database, table, alterSql);
             return ResponseEntity.ok().build();
         } catch (Exception e) {

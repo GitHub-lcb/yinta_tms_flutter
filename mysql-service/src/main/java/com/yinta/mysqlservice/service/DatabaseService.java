@@ -58,21 +58,42 @@ public class DatabaseService {
         return databases;
     }
 
-    public List<String> getTables(String connectionId, String database) throws SQLException {
+    public Map<String, Object> getTables(String connectionId, String database, Integer offset, Integer limit) throws SQLException {
         Connection connection = connections.get(connectionId);
         if (connection == null) {
             throw new IllegalStateException("Connection not found");
         }
 
         connection.setCatalog(database);
+        Map<String, Object> result = new HashMap<>();
+        
+        // 获取总表数
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" + database + "'")) {
+            if (rs.next()) {
+                result.put("total", rs.getInt(1));
+            }
+        }
+
+        // 构建分页查询
+        StringBuilder query = new StringBuilder("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + database + "'");
+        if (limit != null) {
+            query.append(" LIMIT ").append(limit);
+            if (offset != null) {
+                query.append(" OFFSET ").append(offset);
+            }
+        }
+
         List<String> tables = new ArrayList<>();
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SHOW TABLES")) {
+             ResultSet rs = stmt.executeQuery(query.toString())) {
             while (rs.next()) {
                 tables.add(rs.getString(1));
             }
         }
-        return tables;
+        
+        result.put("tables", tables);
+        return result;
     }
 
     public List<Map<String, Object>> executeQuery(String connectionId, String query) throws SQLException {
@@ -212,6 +233,30 @@ public class DatabaseService {
         connection.setCatalog(database);
         try (Statement stmt = connection.createStatement()) {
             stmt.executeUpdate(alterSql);
+        }
+    }
+
+    /// 获取建表语句方法
+    /// 获取指定表的建表语句
+    ///
+    /// @param connectionId 连接ID
+    /// @param database 数据库名称
+    /// @param table 表名
+    /// @return String 建表语句
+    /// @throws SQLException 当获取失败时抛出异常
+    public String getCreateTableStatement(String connectionId, String database, String table) throws SQLException {
+        Connection connection = connections.get(connectionId);
+        if (connection == null) {
+            throw new IllegalStateException("Connection not found");
+        }
+
+        connection.setCatalog(database);
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SHOW CREATE TABLE `" + table + "`")) {
+            if (rs.next()) {
+                return rs.getString(2); // 建表语句在第二列
+            }
+            throw new SQLException("Failed to get create table statement");
         }
     }
 } 

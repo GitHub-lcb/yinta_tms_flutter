@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'connection_controller.dart';
+import '../../controllers/connection_controller.dart';
 import '../../controllers/theme_controller.dart';
+import '../../i18n/locale_controller.dart';
+import '../../services/update/update_service.dart';
 
 /// 数据库连接界面
 /// 提供MySQL数据库连接配置的用户界面，包括主机、端口、用户名和密码的输入表单
@@ -13,11 +15,12 @@ class ConnectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // 初始化连接控制器
     final controller = Get.put(ConnectionController());
-    // final themeController = Get.find<ThemeController>();
+    final localeController = Get.find<LocaleController>();
+    final updateService = Get.find<UpdateService>();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MySQL Client'),
+        title: Text('tms_connect'.tr),
         elevation: 0,
         leading: Container(
           margin: const EdgeInsets.all(8),
@@ -34,13 +37,34 @@ class ConnectionScreen extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary,
               ),
               tooltip: controller.isDarkMode.value
-                  ? '切换到亮色主题 / Switch to Light Theme'
-                  : '切换到暗色主题 / Switch to Dark Theme',
+                  ? 'switch_to_light'.tr
+                  : 'switch_to_dark'.tr,
               onPressed: controller.toggleTheme,
             ),
           ),
         ),
         actions: [
+          // 语言切换按钮
+          Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: GetX<LocaleController>(
+              builder: (controller) => IconButton(
+                icon: Text(
+                  controller.isEnglish ? '中' : 'En',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                tooltip: 'language'.tr,
+                onPressed: controller.toggleLocale,
+              ),
+            ),
+          ),
           // 保存的连接按钮
           Container(
             margin: const EdgeInsets.only(right: 8),
@@ -50,20 +74,45 @@ class ConnectionScreen extends StatelessWidget {
             ),
             child: IconButton(
               icon: const Icon(Icons.bookmark),
-              tooltip: '保存的连接 / Saved Connections',
+              tooltip: 'saved_connections'.tr,
               onPressed: () => _showSavedConnectionsDialog(context, controller),
             ),
           ),
+          // 检查更新按钮
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Obx(() => IconButton(
+                  icon: updateService.isChecking.value
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.system_update),
+                  tooltip: updateService.isChecking.value
+                      ? 'checking_update'.tr
+                      : 'check_update'.tr,
+                  onPressed: updateService.isChecking.value
+                      ? null
+                      : () async {
+                          await updateService.checkUpdate();
+                        },
+                )),
+          ),
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: '下载应用 / Download Apps',
+            tooltip: 'download_apps'.tr,
             onPressed: () => Get.toNamed('/download'),
           ),
           if (controller.isConnected.value)
             IconButton(
               icon: const Icon(Icons.power_settings_new),
-              tooltip: '断开连接 / Disconnect',
-              onPressed: controller.disconnect,
+              tooltip: 'disconnect'.tr,
+              onPressed: () => _showDisconnectDialog(context, controller),
             ),
         ],
       ),
@@ -89,13 +138,13 @@ class ConnectionScreen extends StatelessWidget {
                   // 基本配置卡片
                   _buildCard(
                     context,
-                    title: '基本配置 / Basic Configuration',
+                    title: 'basic_config'.tr,
                     icon: Icons.settings,
                     children: [
                       // 配置名称输入框
                       _buildTextField(
                         controller: controller.nameController,
-                        label: '配置名称 / Configuration Name',
+                        label: 'config_name'.tr,
                         hint: 'My Connection',
                         icon: Icons.bookmark,
                       ),
@@ -103,12 +152,12 @@ class ConnectionScreen extends StatelessWidget {
                       // 主机地址输入框
                       _buildTextField(
                         controller: controller.hostController,
-                        label: '主机 / Host',
+                        label: 'host'.tr,
                         hint: 'localhost',
                         icon: Icons.computer,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return '请输入主机地址 / Please enter host';
+                            return 'please_enter_host'.tr;
                           }
                           return null;
                         },
@@ -117,17 +166,17 @@ class ConnectionScreen extends StatelessWidget {
                       // 端口号输入框
                       _buildTextField(
                         controller: controller.portController,
-                        label: '端口 / Port',
+                        label: 'port'.tr,
                         hint: '3306',
                         icon: Icons.numbers,
                         keyboardType: TextInputType.number,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return '请输入端口号 / Please enter port';
+                            return 'please_enter_port'.tr;
                           }
                           final port = int.tryParse(value);
                           if (port == null || port <= 0 || port > 65535) {
-                            return '端口号无效 / Invalid port number';
+                            return 'invalid_port'.tr;
                           }
                           return null;
                         },
@@ -138,18 +187,18 @@ class ConnectionScreen extends StatelessWidget {
                   // 认证信息卡片
                   _buildCard(
                     context,
-                    title: '认证信息 / Authentication',
+                    title: 'authentication'.tr,
                     icon: Icons.security,
                     children: [
                       // 用户名输入框
                       _buildTextField(
                         controller: controller.userController,
-                        label: '用户名 / Username',
+                        label: 'username'.tr,
                         hint: 'root',
                         icon: Icons.person,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return '请输入用户名 / Please enter username';
+                            return 'please_enter_username'.tr;
                           }
                           return null;
                         },
@@ -158,7 +207,7 @@ class ConnectionScreen extends StatelessWidget {
                       // 密码输入框
                       Obx(() => _buildTextField(
                             controller: controller.passwordController,
-                            label: '密码 / Password',
+                            label: 'password'.tr,
                             icon: Icons.lock,
                             obscureText: !controller.isPasswordVisible.value,
                             suffixIcon: IconButton(
@@ -177,13 +226,13 @@ class ConnectionScreen extends StatelessWidget {
                   // 高级选项卡片
                   _buildCard(
                     context,
-                    title: '高级选项 / Advanced Options',
-                    icon: Icons.tune,
+                    // title: 'advanced_options'.tr,
+                    // icon: Icons.tune,
                     children: [
                       // 数据库名称输入框
                       _buildTextField(
                         controller: controller.databaseController,
-                        label: '数据库名称 / Database Name (Optional)',
+                        label: 'database_name'.tr,
                         hint: 'Enter database name',
                         icon: Icons.storage,
                       ),
@@ -206,10 +255,8 @@ class ConnectionScreen extends StatelessWidget {
                                 ),
                               ),
                               child: SwitchListTile(
-                                title: const Text('离线模式 / Offline Mode'),
-                                subtitle: const Text(
-                                  '直接连接数据库，不通过后端服务 / Direct database connection without backend service',
-                                ),
+                                title: Text('offline_mode'.tr),
+                                subtitle: Text('offline_mode_desc'.tr),
                                 value: controller.isOfflineMode.value,
                                 onChanged: (value) =>
                                     controller.toggleOfflineMode(),
@@ -236,16 +283,16 @@ class ConnectionScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      '离线模式在Web平台不可用 / Offline mode is not available on Web',
-                                      style: TextStyle(
+                                    Text(
+                                      'offline_mode_web_unavailable'.tr,
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: Colors.grey,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '由于浏览器安全限制，Web版本只能通过后端服务连接数据库 / Due to browser security restrictions, Web version can only connect through backend service',
+                                      'offline_mode_web_desc'.tr,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],
@@ -288,7 +335,7 @@ class ConnectionScreen extends StatelessWidget {
                                         ? null
                                         : controller.testConnection,
                                     icon: Icons.check_circle,
-                                    label: '测试 / Test',
+                                    label: 'test'.tr,
                                     color: Colors.green,
                                     height: 48,
                                   );
@@ -307,7 +354,7 @@ class ConnectionScreen extends StatelessWidget {
                                         ? null
                                         : controller.saveConnection,
                                     icon: Icons.bookmark,
-                                    label: '保存 / Save',
+                                    label: 'save'.tr,
                                     color:
                                         Theme.of(context).colorScheme.primary,
                                     height: 48,
@@ -348,7 +395,8 @@ class ConnectionScreen extends StatelessWidget {
                                   ? null
                                   : controller.connect,
                               icon: Icons.login,
-                              label: '连接 / Connect',
+                              // label: '连接 / Connect',
+                              label: 'connect'.tr,
                               color: Colors.white,
                               isLoading: controller.isLoading.value,
                               height: 48,

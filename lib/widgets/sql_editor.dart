@@ -1,30 +1,71 @@
+/// SQL编辑器组件文件
+/// 提供功能丰富的SQL代码编辑器
+/// 基于code_text_field和highlight包实现
+/// 主要功能：
+/// 1. SQL语法高亮显示
+/// 2. 智能代码提示和自动完成
+/// 3. 支持SQL格式化
+/// 4. 支持快捷键操作
+/// 5. 支持表名和列名自动完成
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:code_text_field/code_text_field.dart';
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:highlight/languages/sql.dart';
 
-/// SQL编辑器组件
-/// 提供SQL语句的编辑、语法高亮、自动完成等功能
+/// SQL编辑器组件类
+/// 提供可视化的SQL编辑功能
+/// 支持语法高亮、代码提示和自动完成
+/// 可配置为只读模式
+///
+/// 特性：
+/// 1. 支持SQL语法高亮显示
+/// 2. 提供智能代码提示和自动完成
+/// 3. 支持表名和列名自动补全
+/// 4. 集成快捷键操作
+/// 5. 可配置只读模式
 class SqlEditor extends StatefulWidget {
   /// 初始SQL语句
+  /// 编辑器启动时显示的SQL代码
+  /// 如果为null则显示空编辑器
   final String? initialValue;
 
   /// SQL语句变化回调函数
+  /// 当编辑器内容发生变化时调用
+  /// 用于实时获取编辑器的内容
   final ValueChanged<String>? onChanged;
 
   /// 执行SQL语句回调函数
+  /// 当用户触发执行操作时调用（如按下F5）
+  /// 用于实现SQL语句的执行功能
   final VoidCallback? onExecute;
 
-  /// 是否只读模式
+  /// 是否为只读模式
+  /// true表示用户不能编辑内容
+  /// false表示用户可以自由编辑
   final bool readOnly;
 
-  /// 可用的表名列表（用于自动完成）
+  /// 可用的表名列表
+  /// 用于自动完成功能
+  /// 当用户输入时提供表名建议
   final List<String> tables;
 
-  /// 可用的列名列表（用于自动完成）
+  /// 可用的列名列表
+  /// 用于自动完成功能
+  /// 当用户输入时提供列名建议
   final List<String> columns;
 
+  /// 构造函数
+  /// 创建一个新的SQL编辑器实例
+  ///
+  /// @param key Widget的键
+  /// @param initialValue 初始SQL语句
+  /// @param onChanged 内容变化回调
+  /// @param onExecute 执行回调
+  /// @param readOnly 是否只读
+  /// @param tables 表名列表
+  /// @param columns 列名列表
   const SqlEditor({
     super.key,
     this.initialValue,
@@ -39,32 +80,52 @@ class SqlEditor extends StatefulWidget {
   State<SqlEditor> createState() => _SqlEditorState();
 }
 
+/// SQL编辑器状态类
+/// 管理编辑器的内部状态和行为
+/// 实现编辑器的核心功能
+/// 处理用户输入和自动完成
 class _SqlEditorState extends State<SqlEditor> {
   /// 代码编辑器控制器
+  /// 管理编辑器的文本内容和选择
+  /// 处理文本变化和光标移动
   late CodeController _codeController;
 
   /// 自动完成菜单的位置链接
+  /// 用于将自动完成菜单定位到正确的位置
+  /// 跟随光标位置移动
   final LayerLink _layerLink = LayerLink();
 
-  /// 自动完成菜单的覆盖层条目
+  /// 自动完成菜单的覆盖层
+  /// 显示自动完成建议列表
+  /// 当不需要时为null
   OverlayEntry? _overlayEntry;
 
   /// 编辑器焦点节点
+  /// 管理编辑器的键盘焦点
+  /// 用于控制自动完成菜单的显示和隐藏
   final FocusNode _focusNode = FocusNode();
 
   /// 当前正在输入的单词
+  /// 用于自动完成功能
+  /// 根据此值筛选建议列表
   String _currentWord = '';
 
   /// 自动完成建议列表
+  /// 包含当前可用的自动完成选项
+  /// 根据用户输入动态更新
   List<String> _suggestions = [];
 
   /// 当前选中的建议项索引
+  /// 在自动完成列表中当前高亮的项
+  /// 用于键盘导航
   int _selectedIndex = 0;
 
   /// SQL关键字样式映射
-  /// 用于语法高亮显示不同类型的SQL关键字
+  /// 定义不同类型SQL关键字的显示样式
+  /// 用于实现语法高亮
   static final Map<String, TextStyle> _keywords = {
-    // DML关键字
+    // DML关键字 - 数据操作语言
+    // 用于数据查询和修改的关键字
     'SELECT':
         const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
     'INSERT':
@@ -89,7 +150,8 @@ class _SqlEditorState extends State<SqlEditor> {
         const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
     'SET': const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold),
 
-    // DDL关键字
+    // DDL关键字 - 数据定义语言
+    // 用于数据库结构定义的关键字
     'CREATE': const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
     'ALTER': const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
     'DROP': const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
@@ -102,6 +164,7 @@ class _SqlEditorState extends State<SqlEditor> {
         const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
 
     // 连接关键字
+    // 用于表连接操作的关键字
     'JOIN': const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
     'INNER JOIN':
         const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
@@ -116,6 +179,7 @@ class _SqlEditorState extends State<SqlEditor> {
     'ON': const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
 
     // 运算符关键字
+    // 用于条件判断和逻辑运算的关键字
     'AND': const TextStyle(color: Colors.red),
     'OR': const TextStyle(color: Colors.red),
     'NOT': const TextStyle(color: Colors.red),
@@ -126,6 +190,7 @@ class _SqlEditorState extends State<SqlEditor> {
     'IS NOT NULL': const TextStyle(color: Colors.red),
 
     // 函数关键字
+    // 用于聚合和计算的函数关键字
     'COUNT': const TextStyle(color: Colors.teal),
     'SUM': const TextStyle(color: Colors.teal),
     'AVG': const TextStyle(color: Colors.teal),
@@ -134,7 +199,9 @@ class _SqlEditorState extends State<SqlEditor> {
     'DISTINCT': const TextStyle(color: Colors.teal),
   };
 
-  /// 额外的SQL关键字列表（仅用于自动完成）
+  /// 额外的SQL关键字列表
+  /// 仅用于自动完成功能
+  /// 包含一些常用但不需要特殊样式的SQL关键字
   static const List<String> _additionalKeywords = [
     'AS',
     'ASC',
@@ -162,6 +229,9 @@ class _SqlEditorState extends State<SqlEditor> {
     'AUTO_INCREMENT',
   ];
 
+  /// 初始化方法
+  /// 在组件创建时调用
+  /// 设置编辑器的初始状态和事件监听器
   @override
   void initState() {
     super.initState();
@@ -169,45 +239,57 @@ class _SqlEditorState extends State<SqlEditor> {
     _codeController = CodeController(
       text: widget.initialValue ?? '',
       language: sql,
+      // 配置正则表达式匹配的样式
       patternMap: {
-        r'".*?"': const TextStyle(color: Colors.green),
-        r"'.*?'": const TextStyle(color: Colors.green),
-        r'\d+': const TextStyle(color: Colors.blue),
-        r'--.*': const TextStyle(color: Colors.grey),
-        r'/\*.*?\*/': const TextStyle(color: Colors.grey),
-        r'`.*?`': const TextStyle(color: Colors.orange),
+        r'".*?"': const TextStyle(color: Colors.green), // 双引号字符串
+        r"'.*?'": const TextStyle(color: Colors.green), // 单引号字符串
+        r'\d+': const TextStyle(color: Colors.blue), // 数字
+        r'--.*': const TextStyle(color: Colors.grey), // 单行注释
+        r'/\*.*?\*/': const TextStyle(color: Colors.grey), // 多行注释
+        r'`.*?`': const TextStyle(color: Colors.orange), // 反引号标识符
       },
+      // 配置关键字样式
       stringMap: _keywords,
     );
 
     // 添加文本变化监听器
     _codeController.addListener(() {
+      // 调用外部回调
       widget.onChanged?.call(_codeController.text);
+      // 更新自动完成建议
       _updateSuggestions();
     });
 
     // 添加焦点监听器
     _focusNode.addListener(() {
+      // 失去焦点时隐藏自动完成菜单
       if (!_focusNode.hasFocus) {
         _hideOverlay();
       }
     });
   }
 
+  /// 资源释放方法
+  /// 在组件销毁时调用
+  /// 清理所有使用的资源
   @override
   void dispose() {
-    // 释放资源
+    // 隐藏自动完成菜单
     _hideOverlay();
+    // 释放控制器
     _codeController.dispose();
+    // 释放焦点节点
     _focusNode.dispose();
     super.dispose();
   }
 
   /// 更新自动完成建议列表
-  /// 根据当前输入的单词筛选可能的建议
+  /// 根据当前输入的内容筛选可能的建议
+  /// 处理自动完成菜单的显示和隐藏
   void _updateSuggestions() {
     final text = _codeController.text;
     final selection = _codeController.selection;
+    // 检查选择是否有效
     if (!selection.isValid || selection.start != selection.end) {
       _hideOverlay();
       return;
@@ -218,6 +300,7 @@ class _SqlEditorState extends State<SqlEditor> {
     final words = beforeCursor.split(RegExp(r'[\s\n]'));
     _currentWord = words.isEmpty ? '' : words.last.toUpperCase();
 
+    // 如果没有输入内容，隐藏自动完成菜单
     if (_currentWord.isEmpty) {
       _hideOverlay();
       return;
@@ -225,33 +308,44 @@ class _SqlEditorState extends State<SqlEditor> {
 
     // 收集所有可能的建议
     final allSuggestions = [
-      ..._keywords.keys,
-      ..._additionalKeywords,
-      ...widget.tables.map((t) => t.toUpperCase()),
-      ...widget.columns.map((c) => c.toUpperCase()),
+      ..._keywords.keys, // SQL关键字
+      ..._additionalKeywords, // 额外关键字
+      ...widget.tables.map((t) => t.toUpperCase()), // 表名
+      ...widget.columns.map((c) => c.toUpperCase()), // 列名
     ];
 
-    // 根据当前单词过滤建议
+    // 根据当前输入筛选建议
     _suggestions = allSuggestions
         .where((s) => s.startsWith(_currentWord) && s != _currentWord)
         .toList();
 
+    // 如果没有建议，隐藏自动完成菜单
     if (_suggestions.isEmpty) {
       _hideOverlay();
       return;
     }
 
+    // 重置选中项索引
     _selectedIndex = 0;
-    _showOverlay();
+
+    // 显示或更新自动完成菜单
+    if (_overlayEntry == null) {
+      _showOverlay();
+    } else {
+      _overlayEntry!.markNeedsBuild();
+    }
   }
 
   /// 显示自动完成菜单
+  /// 在编辑器下方显示建议列表
   void _showOverlay() {
     _hideOverlay();
 
+    // 获取编辑器在屏幕上的位置
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final offset = renderBox.localToGlobal(Offset.zero);
 
+    // 创建并显示覆盖层
     _overlayEntry = OverlayEntry(
       builder: (context) {
         return StatefulBuilder(
@@ -332,6 +426,7 @@ class _SqlEditorState extends State<SqlEditor> {
   }
 
   /// 应用选中的自动完成建议
+  /// 将选中的建议文本插入到当前光标位置
   ///
   /// 参数:
   /// - [suggestion]: 要应用的建议文本
@@ -342,6 +437,7 @@ class _SqlEditorState extends State<SqlEditor> {
     final afterCursor = text.substring(selection.start);
     final lastWord = beforeCursor.split(RegExp(r'[\s\n]')).last;
 
+    // 替换当前单词为建议文本
     final newText =
         beforeCursor.substring(0, beforeCursor.length - lastWord.length) +
             suggestion +
@@ -364,26 +460,24 @@ class _SqlEditorState extends State<SqlEditor> {
 
     if (event is RawKeyDownEvent) {
       switch (event.logicalKey.keyLabel) {
-        case 'Arrow Down':
+        case 'Arrow Down': // 向下键选择下一个建议
           setState(() {
             _selectedIndex = (_selectedIndex + 1) % _suggestions.length;
-            // 强制覆盖层重建
             _overlayEntry?.markNeedsBuild();
           });
           break;
-        case 'Arrow Up':
+        case 'Arrow Up': // 向上键选择上一个建议
           setState(() {
             _selectedIndex = (_selectedIndex - 1 + _suggestions.length) %
                 _suggestions.length;
-            // 强制覆盖层重建
             _overlayEntry?.markNeedsBuild();
           });
           break;
-        case 'Tab':
-        case 'Enter':
+        case 'Tab': // Tab键应用建议
+        case 'Enter': // Enter键应用建议
           _applySuggestion(_suggestions[_selectedIndex]);
           break;
-        case 'Escape':
+        case 'Escape': // Esc键关闭建议菜单
           _hideOverlay();
           break;
       }
@@ -483,6 +577,7 @@ class _SqlEditorState extends State<SqlEditor> {
     bool newLine = true;
     String? lastToken;
 
+    // 逐个处理token进行格式化
     for (int i = 0; i < tokens.length; i++) {
       String token = tokens[i];
       String upperToken = token.toUpperCase();
@@ -545,6 +640,7 @@ class _SqlEditorState extends State<SqlEditor> {
       final formattedSql = _formatSql(_codeController.text);
       _codeController.text = formattedSql;
     } catch (e) {
+      // 显示格式化失败提示
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('格式化失败：$e\nFormat failed: $e'),

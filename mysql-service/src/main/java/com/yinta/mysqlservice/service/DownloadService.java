@@ -22,17 +22,20 @@ public class DownloadService {
         Map<String, String> urls = new HashMap<>();
         
         try {
+            // 添加版本信息
+            urls.put("currentVersion", version);
+            
             // Web版本
-            urls.put("web", baseUrl + "/web/app");
+            urls.put("web", "https://yintademo.lichenbo.cn");
             
             // 桌面版本
-            urls.put("windows", String.format("%s/desktop/windows/mysql-client-%s.exe", baseUrl, version));
-            urls.put("macos", String.format("%s/desktop/macos/mysql-client-%s.dmg", baseUrl, version));
+            urls.put("windows", "https://qny.lichenbo.cn/tms/tms-connect.exe");
+            urls.put("macos", "");
             urls.put("linux", String.format("%s/desktop/linux/mysql-client-%s.AppImage", baseUrl, version));
             
             // 移动版本
-            urls.put("android", String.format("%s/mobile/android/mysql-client-%s.apk", baseUrl, version));
-            urls.put("ios", "https://apps.apple.com/app/mysql-client");
+            urls.put("android", "https://qny.lichenbo.cn/tms/tms-connect.apk");
+            urls.put("ios", "");
             
             log.debug("Generated download URLs: {}", urls);
             return urls;

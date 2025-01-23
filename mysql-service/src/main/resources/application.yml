@@ -19,6 +19,6 @@ logging:
     com.yinta: DEBUG 
 
 app:
-  version: 1.0.0
+  version: 1.0.1
   download:
     base-url: http://localhost:8080/downloads 

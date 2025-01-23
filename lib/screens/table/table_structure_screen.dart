@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'table_structure_controller.dart';
+import '../../controllers/table_structure_controller.dart';
 
 /// 表结构界面
 /// 显示和管理数据表的结构信息，包括字段和索引的查看、添加、编辑和删除功能
@@ -11,9 +11,15 @@ class TableStructureScreen extends GetView<TableStructureController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${controller.tableName} 结构 / Structure'),
+        title: Text('${controller.tableName} ''structure'.tr),
         elevation: 0,
         actions: [
+          // 查看建表语句按钮
+          IconButton(
+            icon: const Icon(Icons.code),
+            tooltip: '查看建表语句 / Show Create Table',
+            onPressed: () => controller.showCreateTableStatement(),
+          ),
           // 添加字段按钮
           IconButton(
             icon: const Icon(Icons.add),

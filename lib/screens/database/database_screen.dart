@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'database_controller.dart';
+import '../../controllers/database_controller.dart';
 
 /// 数据库列表界面
 /// 显示当前MySQL服务器中所有可用的数据库列表，并提供数据库选择功能

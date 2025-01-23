@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'table_data_controller.dart';
+import '../../controllers/table_data_controller.dart';
 
 /// 表数据界面
 /// 显示数据表的内容，支持分页、排序、筛选、搜索、编辑等功能
@@ -130,13 +130,19 @@ class TableDataScreen extends GetView<TableDataController> {
               ),
               child: Row(
                 children: [
-                  // 搜索框
+                  // SQL查询输入框
                   Expanded(
                     child: TextField(
                       controller: controller.searchController,
                       decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search),
-                        hintText: '搜索 / Search',
+                        prefixIcon: const Icon(Icons.code),
+                        hintText: '输入SQL查询语句 / Enter SQL query',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.play_arrow),
+                          tooltip: '执行查询 / Execute query',
+                          onPressed: () => controller.executeCustomQuery(
+                              controller.searchController.text),
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -161,7 +167,9 @@ class TableDataScreen extends GetView<TableDataController> {
                           ),
                         ),
                       ),
-                      onChanged: controller.onSearchChanged,
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      onSubmitted: controller.executeCustomQuery,
                     ),
                   ),
                   const SizedBox(width: 16),

@@ -4,7 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../services/download/download_service.dart';
 import '../../utils/platform_utils.dart';
-import 'download_controller.dart';
+import '../../utils/dialog_utils.dart';
+import '../../controllers/download_controller.dart';
 
 class DownloadScreen extends StatelessWidget {
   const DownloadScreen({super.key});
@@ -17,7 +18,7 @@ class DownloadScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('下载应用 / Download Apps'),
+        title: Text('download_apps'.tr),
         elevation: 0,
         centerTitle: true,
       ),
@@ -160,7 +161,7 @@ class DownloadScreen extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    '选择您的平台 / Choose Your Platform',
+                                    'choose_platform'.tr,
                                     style: TextStyle(
                                       fontSize: isWebPlatform ? 20 : 16,
                                       fontWeight: FontWeight.bold,
@@ -182,7 +183,8 @@ class DownloadScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  '当前平台: ${currentPlatform.name} / Current Platform: ${currentPlatform.name}',
+                                  'current_platform'.trParams(
+                                      {'platform': currentPlatform.name}),
                                   style: TextStyle(
                                     color:
                                         Theme.of(context).colorScheme.primary,
@@ -200,7 +202,7 @@ class DownloadScreen extends StatelessWidget {
                     // Web版本
                     _buildPlatformSection(
                       context,
-                      title: 'Web版本 / Web Version',
+                      title: 'web_version'.tr,
                       icon: Icons.web,
                       platforms: [
                         _PlatformInfo(
@@ -387,6 +389,8 @@ class DownloadScreen extends StatelessWidget {
     _PlatformInfo platform, {
     bool isWebPlatform = false,
   }) {
+    final bool isUrlEmpty = platform.url.isEmpty;
+
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -406,7 +410,7 @@ class DownloadScreen extends StatelessWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _launchUrl(platform.url),
+          onTap: isUrlEmpty ? null : () => _launchUrl(platform.url),
           child: Padding(
             padding: EdgeInsets.all(isWebPlatform ? 16 : 12),
             child: Row(
@@ -450,7 +454,7 @@ class DownloadScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                '推荐 / Recommended',
+                                'recommended'.tr,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: isWebPlatform ? 13 : 12,
@@ -461,21 +465,47 @@ class DownloadScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '版本 / Version: ${platform.version}',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: isWebPlatform ? 14 : 12,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            'version'.trParams({'version': platform.version}),
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: isWebPlatform ? 14 : 12,
+                            ),
+                          ),
+                          if (isUrlEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'not_released'.tr,
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: isWebPlatform ? 13 : 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
                 Icon(
                   platform.isWebApp ? Icons.open_in_new : Icons.download,
-                  color: platform.isRecommended
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.grey[600],
+                  color: isUrlEmpty
+                      ? Colors.grey[400]
+                      : (platform.isRecommended
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.grey[600]),
                   size: isWebPlatform ? 24 : 20,
                 ),
               ],
@@ -494,11 +524,9 @@ class DownloadScreen extends StatelessWidget {
         mode: LaunchMode.platformDefault,
       );
     } else {
-      Get.snackbar(
+      DialogUtils.showError(
         '错误 / Error',
         '无法打开链接 / Cannot open link',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red[100],
       );
     }
   }

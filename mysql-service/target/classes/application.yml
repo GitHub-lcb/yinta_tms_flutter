@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: mysql-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mysql?useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+
+jwt:
+  secret: your-secret-key
+  expiration: 86400000 # 24 hours
+
+logging:
+  level:
+    com.yinta: DEBUG 
+
+app:
+  version: 1.0.1
+  download:
+    base-url: http://localhost:8080/downloads 
