@@ -16,6 +16,18 @@ class TableDataScreen extends GetView<TableDataController> {
         title: Text('${controller.tableName}'),
         elevation: 0,
         actions: [
+          // 性能演示模式下的应急按钮（无论界面多卡都能点击此按钮恢复）
+          Obx(() => controller.isPerformanceDemo.value &&
+                  !controller.useLazyLoading.value
+              ? IconButton(
+                  icon: const Icon(Icons.emergency, color: Colors.red),
+                  tooltip: '应急恢复按钮 / Emergency Recovery',
+                  onPressed: () {
+                    // 直接切回懒加载模式
+                    controller.useLazyLoading.value = true;
+                  },
+                )
+              : const SizedBox.shrink()),
           // 导出按钮
           IconButton(
             icon: const Icon(Icons.file_download),
@@ -45,6 +57,12 @@ class TableDataScreen extends GetView<TableDataController> {
                 'table': controller.tableName,
               },
             ),
+          ),
+          // 性能演示按钮
+          IconButton(
+            icon: const Icon(Icons.speed),
+            tooltip: '性能演示 / Performance Demo',
+            onPressed: () => _showPerformanceDemoDialog(context),
           ),
         ],
       ),
@@ -83,6 +101,11 @@ class TableDataScreen extends GetView<TableDataController> {
               ],
             ),
           );
+        }
+
+        // 性能演示模式
+        if (controller.isPerformanceDemo.value) {
+          return _buildPerformanceDemoView(context);
         }
 
         // 显示空数据提示
@@ -409,6 +432,331 @@ class TableDataScreen extends GetView<TableDataController> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 构建性能演示对话框
+  void _showPerformanceDemoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('性能演示 / Performance Demo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '这将生成10万行数据用于演示Flutter的渲染性能。\n'
+              '您可以切换普通渲染和懒加载渲染模式来体验性能差异。',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.yellow[100],
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.yellow[700]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.yellow[900]),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '警告',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '• 普通渲染模式会尝试一次性渲染大量数据，将导致严重卡顿\n'
+                    '• 如果界面完全无响应，可点击顶部红色"应急恢复"按钮\n'
+                    '• 为防止应用崩溃，普通渲染模式最多显示10000行数据',
+                    style: TextStyle(color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消 / Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              controller.generateLargeDataset();
+            },
+            child: const Text('开始演示 / Start Demo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建性能演示视图
+  Widget _buildPerformanceDemoView(BuildContext context) {
+    return Column(
+      children: [
+        // 演示控制面板
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '🚀 Flutter 性能优化演示',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '共 ${controller.largeDataset.length} 行数据',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 添加说明文字
+              Text(
+                controller.useLazyLoading.value
+                    ? '当前使用懒加载模式，只有可见的项目才会被渲染，滚动应该很流畅'
+                    : '当前使用普通渲染模式，所有数据都会一次性渲染，可能会导致严重卡顿',
+                style: TextStyle(
+                  color: controller.useLazyLoading.value
+                      ? Colors.green[700]
+                      : Colors.orange[700],
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              // 警告提示
+              if (!controller.useLazyLoading.value)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    border: Border.all(color: Colors.red[200]!),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.red[700], size: 16),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          '警告：如果界面卡死，请点击顶部红色"应急恢复"按钮切回懒加载模式',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  // 切换渲染模式按钮
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: Icon(controller.useLazyLoading.value
+                          ? Icons.view_list
+                          : Icons.grid_view),
+                      label: Text(
+                        controller.useLazyLoading.value
+                            ? '懒加载模式（ListView.builder）'
+                            : '普通渲染模式（直接渲染全部）',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: controller.useLazyLoading.value
+                            ? Colors.green
+                            : Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: controller.toggleLazyLoading,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // 退出演示按钮
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: '退出演示 / Exit Demo',
+                    onPressed: controller.exitPerformanceDemo,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.red[100],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // 数据显示区域
+        Expanded(
+          child: controller.useLazyLoading.value
+              ? _buildLazyLoadingView(context)
+              : _buildNormalRenderingView(context),
+        ),
+      ],
+    );
+  }
+
+  /// 构建懒加载视图（ListView.builder）
+  Widget _buildLazyLoadingView(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      child: ListView.builder(
+        itemCount: controller.largeDataset.length,
+        itemBuilder: (context, index) {
+          final row = controller.largeDataset[index];
+          return ListTile(
+            title: Text('行 ${index + 1}'),
+            subtitle: Text(
+              controller.columns
+                  .map((column) => '${column}: ${row[column]}')
+                  .join(', '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () => _showRowDetailsDialog(context, row),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 构建普通渲染视图（直接渲染全部数据）
+  Widget _buildNormalRenderingView(BuildContext context) {
+    // 限制一次性渲染的数据量，以防完全卡死
+    const int maxRenderedItems = 10000; // 最多只渲染1万行，防止应用完全无响应
+    final dataToShow = controller.largeDataset.length > maxRenderedItems
+        ? controller.largeDataset.sublist(0, maxRenderedItems)
+        : controller.largeDataset;
+
+    return Column(
+      children: [
+        // 警告提示条
+        if (controller.largeDataset.length > maxRenderedItems)
+          Container(
+            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            decoration: BoxDecoration(
+              color: Colors.red[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.red[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '为防止应用完全卡死，仅显示前 $maxRenderedItems 行数据。'
+                    '完整数据共 ${controller.largeDataset.length} 行。'
+                    '请使用懒加载模式查看所有数据。',
+                    style: TextStyle(color: Colors.red[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // 数据显示区域
+        Expanded(
+          child: Card(
+            margin: const EdgeInsets.all(16),
+            elevation: 2,
+            clipBehavior: Clip.antiAlias,
+            child: SingleChildScrollView(
+              child: Column(
+                children: dataToShow.map((row) {
+                  return ListTile(
+                    title:
+                        Text('行 ${controller.largeDataset.indexOf(row) + 1}'),
+                    subtitle: Text(
+                      controller.columns
+                          .map((column) => '${column}: ${row[column]}')
+                          .join(', '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => _showRowDetailsDialog(context, row),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 显示行详情对话框
+  void _showRowDetailsDialog(BuildContext context, Map<String, dynamic> row) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('行详情 / Row Details'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: controller.columns.map((column) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$column: ',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Expanded(
+                      child: Text('${row[column]}'),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭 / Close'),
+          ),
+        ],
       ),
     );
   }

@@ -22,6 +22,15 @@ class TableDataController extends GetxController {
   /// 表格数据
   final data = <Map<String, dynamic>>[].obs;
 
+  /// 演示大数据集（用于性能演示）
+  final largeDataset = <Map<String, dynamic>>[].obs;
+
+  /// 是否使用懒加载模式
+  final useLazyLoading = true.obs;
+
+  /// 是否正在展示性能演示
+  final isPerformanceDemo = false.obs;
+
   /// 表格列名
   final columns = <String>[].obs;
 
@@ -753,5 +762,38 @@ class TableDataController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// 切换是否使用懒加载
+  void toggleLazyLoading() {
+    useLazyLoading.value = !useLazyLoading.value;
+  }
+
+  /// 生成大数据集用于性能演示
+  void generateLargeDataset() {
+    isPerformanceDemo.value = true;
+    isLoading.value = true;
+
+    // 清空现有数据
+    largeDataset.clear();
+
+    // 生成10万行测试数据
+    for (int i = 0; i < 100000; i++) {
+      final Map<String, dynamic> row = {};
+      for (String column in columns) {
+        row[column] = '数据 $i - $column';
+      }
+      largeDataset.add(row);
+    }
+
+    isLoading.value = false;
+  }
+
+  /// 退出性能演示模式
+  void exitPerformanceDemo() {
+    isPerformanceDemo.value = false;
+    // 确保退出时切回懒加载模式（防止下次进入时卡死）
+    useLazyLoading.value = true;
+    largeDataset.clear();
   }
 }
