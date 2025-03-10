@@ -41,26 +41,73 @@ class QueryScreen extends GetView<QueryController> {
         children: [
           // SQL编辑器区域
           Container(
-            height: MediaQuery.of(context).size.height * 0.4,
-            margin: const EdgeInsets.all(16),
+            height: MediaQuery.of(context).size.height * 0.45,
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
               ],
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SqlEditor(
-                onChanged: controller.onQueryChanged,
-                onExecute: controller.executeQuery,
-                tables: controller.tables,
-                columns: controller.columns,
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 编辑器标题栏
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.05),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.code,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'SQL编辑器 / SQL Editor',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // SQL编辑器
+                  Expanded(
+                    child: SqlEditor(
+                      onChanged: controller.onQueryChanged,
+                      onExecute: controller.executeQuery,
+                      tables: controller.tables,
+                      columns: controller.columns,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -69,194 +116,242 @@ class QueryScreen extends GetView<QueryController> {
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Obx(() {
-                  // 显示加载状态
-                  if (controller.isLoading.value) {
-                    return const Center(
-                      child: SingleChildScrollView(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                '正在执行查询...\nExecuting query...',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 结果区域标题栏
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.05),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
                         ),
                       ),
-                    );
-                  }
-
-                  final results = controller.queryResults;
-                  if (results.isEmpty) {
-                    return Center(
-                      child: SingleChildScrollView(
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(
-                                  Icons.code_outlined,
-                                  size: 48,
-                                  color: Colors.grey[400],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '暂无查询结果\nNo query results yet',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '在编辑器中输入SQL查询语句\nEnter SQL query in the editor',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.table_chart,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '查询结果 / Query Results',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    );
-                  }
-
-                  return Column(
-                    children: [
-                      // 标签页栏
-                      Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.grey[200]!,
-                              width: 1,
+                        const SizedBox(width: 16),
+                        Obx(() {
+                          final results = controller.queryResults;
+                          if (results.isEmpty) return const SizedBox();
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ),
-                        ),
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: results.length,
-                          itemBuilder: (context, index) {
-                            final result = results[index];
-                            final isSelected =
-                                index == controller.selectedTabIndex.value;
-
-                            return InkWell(
-                              onTap: () => controller.selectTab(index),
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: isSelected
-                                          ? Theme.of(context).primaryColor
-                                          : Colors.transparent,
-                                      width: 2,
+                            child: Text(
+                              '${results.length} 条结果 / ${results.length} results',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  // 结果内容区域
+                  Expanded(
+                    child: Obx(() {
+                      final results = controller.queryResults;
+                      if (results.isEmpty) {
+                        return Center(
+                          child: SingleChildScrollView(
+                            child: Container(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Icon(
+                                      Icons.code_outlined,
+                                      size: 64,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.5),
                                     ),
                                   ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // 状态图标
-                                    Icon(
-                                      result.isSuccess
-                                          ? Icons.check_circle
-                                          : Icons.error,
-                                      size: 16,
-                                      color: result.isSuccess
-                                          ? Colors.green
-                                          : Colors.red,
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    '暂无查询结果\nNo query results yet',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    const SizedBox(width: 8),
-                                    // SQL预览
-                                    ConstrainedBox(
-                                      constraints:
-                                          const BoxConstraints(maxWidth: 200),
-                                      child: Text(
-                                        result.sql,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    '在编辑器中输入SQL查询语句\nEnter SQL query in the editor',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withOpacity(0.6),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        children: [
+                          // 标签页栏
+                          Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.grey[200]!,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: results.length,
+                              itemBuilder: (context, index) {
+                                final result = results[index];
+                                final isSelected =
+                                    index == controller.selectedTabIndex.value;
+
+                                return InkWell(
+                                  onTap: () => controller.selectTab(index),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                      border: Border(
+                                        bottom: BorderSide(
                                           color: isSelected
                                               ? Theme.of(context).primaryColor
-                                              : Colors.grey[700],
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
+                                              : Colors.transparent,
+                                          width: 2,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    // 关闭按钮
-                                    InkWell(
-                                      onTap: () => controller.closeTab(index),
-                                      child: Icon(
-                                        Icons.close,
-                                        size: 16,
-                                        color: Colors.grey[500],
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // 状态图标
+                                        Icon(
+                                          result.isSuccess
+                                              ? Icons.check_circle
+                                              : Icons.error,
+                                          size: 16,
+                                          color: result.isSuccess
+                                              ? Colors.green
+                                              : Colors.red,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // SQL预览
+                                        ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                              maxWidth: 200),
+                                          child: Text(
+                                            result.sql,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? Theme.of(context)
+                                                      .primaryColor
+                                                  : Colors.grey[700],
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // 关闭按钮
+                                        InkWell(
+                                          onTap: () =>
+                                              controller.closeTab(index),
+                                          child: Icon(
+                                            Icons.close,
+                                            size: 16,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      // 当前选中的查询结果
-                      Expanded(
-                        child: _buildQueryResult(context,
-                            results[controller.selectedTabIndex.value]),
-                      ),
-                    ],
-                  );
-                }),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          // 当前选中的查询结果
+                          Expanded(
+                            child: _buildQueryResult(context,
+                                results[controller.selectedTabIndex.value]),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ],
               ),
             ),
           ),
