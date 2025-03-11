@@ -1,3 +1,6 @@
+在线体验：https://yintademo.lichenbo.cn/
+包下载地址：https://yintademo.lichenbo.cn/download.html
+
 # Yinta TMS Flutter
 
 跨平台 MySQL 数据库管理工具 / Cross-platform MySQL Database Management Tool
