@@ -109,15 +109,23 @@ class TableDataController extends GetxController {
           await _currentService.executeQuery(databaseName, countQuery);
       print('计数查询结果详情:');
       print('- 结果类型: ${countResult.runtimeType}');
-      // print('- 结果内容: $countResult');
       print('- rows类型: ${countResult['rows']?.runtimeType}');
       print('- rows内容: ${countResult['rows']}');
-      print('- 第一行内容: ${countResult['rows']?[0]}');
 
-      // 从结果中提取总数
-      final countValue = countResult['rows']?[0][0];
-      print('提取的计数值: $countValue (${countValue.runtimeType})');
-      final total = countValue != null ? int.parse(countValue.toString()) : 0;
+      // 从结果中提取总数（增加安全处理）
+      int total = 0;
+      if (countResult['rows'] != null && countResult['rows'].isNotEmpty) {
+        final firstRow = countResult['rows'][0];
+        if (firstRow is List && firstRow.isNotEmpty) {
+          total = int.tryParse(firstRow[0].toString()) ?? 0;
+        } else if (firstRow is Map) {
+          // 处理返回 Map 格式的情况
+          final value =
+              firstRow['total'] ?? firstRow['count'] ?? firstRow.values.first;
+          total = int.tryParse(value.toString()) ?? 0;
+        }
+      }
+
       print('转换后的总数: $total');
       totalPages.value = (total / pageSize.value).ceil();
       print('计算的总页数: ${totalPages.value}');
@@ -144,20 +152,25 @@ class TableDataController extends GetxController {
       final result = await _currentService.executeQuery(databaseName, query);
       print('数据查询结果详情:');
       print('- 结果类型: ${result.runtimeType}');
-      // print('- 结果内容: $result');
       print('- columns: ${result['columns']}');
-      // print('- rows: ${result['rows']}');
 
-      // 更新列和数据
-      if (result['columns']?.isNotEmpty ?? false) {
+      // 更新列和数据（增加安全处理）
+      if (result['columns'] != null) {
         columns.value = List<String>.from(result['columns']);
-        if (result['rows']?.isNotEmpty ?? false) {
-          // 将行数据转换为 Map 格式
+        if (result['rows'] != null) {
           data.value = List<Map<String, dynamic>>.from(
             result['rows'].map((row) {
               final map = <String, dynamic>{};
-              for (var i = 0; i < columns.length; i++) {
-                map[columns[i]] = row[i];
+              if (row is List) {
+                // 处理数组格式的行数据
+                for (var i = 0; i < columns.length && i < row.length; i++) {
+                  map[columns[i]] = row[i];
+                }
+              } else if (row is Map) {
+                // 处理 Map 格式的行数据
+                for (var column in columns) {
+                  map[column] = row[column];
+                }
               }
               return map;
             }),

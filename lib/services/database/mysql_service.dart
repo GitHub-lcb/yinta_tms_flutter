@@ -274,9 +274,106 @@ class MySqlService extends GetxService implements DatabaseService {
         throw Exception('Server returned ${response.statusCode}');
       }
 
-      // 返回查询结果
-      return response.data as Map<String, dynamic>;
+      // 处理DDL语句 (CREATE, ALTER, DROP等)
+      final ddlPattern = RegExp(r'^\s*(CREATE|ALTER|DROP|TRUNCATE|RENAME)\s+',
+          caseSensitive: false);
+      if (ddlPattern.hasMatch(query)) {
+        return {
+          'columns': ['Result'],
+          'rows': [
+            ['Query executed successfully']
+          ],
+        };
+      }
+
+      // 检查是否是 SELECT 查询
+      final isSelect =
+          RegExp(r'^\s*SELECT\s+', caseSensitive: false).hasMatch(query);
+
+      // 如果响应数据是Map类型
+      if (response.data is Map<String, dynamic>) {
+        final data = response.data;
+
+        // 如果是非SELECT语句且有affectedRows字段
+        if (!isSelect && data['affectedRows'] != null) {
+          return {
+            'columns': ['Affected Rows'],
+            'rows': [
+              [data['affectedRows']]
+            ],
+          };
+        }
+
+        // 如果有results字段且是列表
+        if (data['results'] is List) {
+          final results = data['results'] as List;
+          if (results.isEmpty) {
+            return {
+              'columns': [],
+              'rows': [],
+            };
+          }
+
+          // 获取第一行数据来提取字段名
+          final firstRow = results.first as Map<String, dynamic>;
+          // 过滤掉内部字段（以下划线开头的字段）
+          final validFields = firstRow.keys
+              .where((field) => !field.toString().startsWith('_'))
+              .toList();
+
+          // 构建行数据
+          final rows = results.map((row) {
+            if (row is Map<String, dynamic>) {
+              return validFields.map((field) => row[field]).toList();
+            }
+            return [];
+          }).toList();
+
+          return {
+            'columns': validFields,
+            'rows': rows,
+          };
+        }
+      }
+
+      // 如果响应数据是列表类型
+      if (response.data is List) {
+        final results = response.data as List;
+        if (results.isEmpty) {
+          return {
+            'columns': [],
+            'rows': [],
+          };
+        }
+
+        // 获取第一行数据来提取字段名
+        final firstRow = results.first as Map<String, dynamic>;
+        // 过滤掉内部字段（以下划线开头的字段）
+        final validFields = firstRow.keys
+            .where((field) => !field.toString().startsWith('_'))
+            .toList();
+
+        // 构建行数据
+        final rows = results.map((row) {
+          if (row is Map<String, dynamic>) {
+            return validFields.map((field) => row[field]).toList();
+          }
+          return [];
+        }).toList();
+
+        return {
+          'columns': validFields,
+          'rows': rows,
+        };
+      }
+
+      // 如果数据格式无法识别，返回空结果
+      return {
+        'columns': [],
+        'rows': [],
+      };
     } catch (e) {
+      print('Query execution error: $e');
       throw HttpUtils.handleError(e);
     }
   }

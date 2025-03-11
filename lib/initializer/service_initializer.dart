@@ -31,30 +31,30 @@ class ServiceInitializer {
     Get.put(UpdateService());
 
     // 延迟检查更新，等待应用完全初始化
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final updateService = Get.find<UpdateService>();
-      final hasUpdate = await updateService.checkUpdate();
-      if (hasUpdate) {
-        Get.dialog(
-          AlertDialog(
-            title: const Text('发现新版本'),
-            content: const Text('是否立即更新到最新版本？'),
-            actions: [
-              TextButton(
-                onPressed: () => Get.back(),
-                child: const Text('稍后再说'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Get.back();
-                  updateService.performUpdate();
-                },
-                child: const Text('立即更新'),
-              ),
-            ],
-          ),
-        );
-      }
-    });
+    // WidgetsBinding.instance.addPostFrameCallback((_) async {
+    //   final updateService = Get.find<UpdateService>();
+    //   final hasUpdate = await updateService.checkUpdate();
+    //   if (hasUpdate) {
+    //     Get.dialog(
+    //       AlertDialog(
+    //         title: const Text('发现新版本'),
+    //         content: const Text('是否立即更新到最新版本？'),
+    //         actions: [
+    //           TextButton(
+    //             onPressed: () => Get.back(),
+    //             child: const Text('稍后再说'),
+    //           ),
+    //           ElevatedButton(
+    //             onPressed: () {
+    //               Get.back();
+    //               updateService.performUpdate();
+    //             },
+    //             child: const Text('立即更新'),
+    //           ),
+    //         ],
+    //       ),
+    //     );
+    //   }
+    // });
   }
 }

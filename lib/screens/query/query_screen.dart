@@ -11,6 +11,27 @@ class QueryScreen extends GetView<QueryController> {
 
   @override
   Widget build(BuildContext context) {
+    // 初始化表控制器
+    final controller = Get.put(QueryController());
+
+    // 更健壮的参数处理方式
+    String databaseName;
+    if (Get.arguments is String) {
+      databaseName = Get.arguments as String;
+    } else if (Get.arguments is Map) {
+      // 尝试从Map中获取数据库名称
+      final argsMap = Get.arguments as Map;
+      if (argsMap.containsKey('database')) {
+        databaseName = argsMap['database'].toString();
+      } else if (argsMap.values.isNotEmpty && argsMap.values.first is String) {
+        databaseName = argsMap.values.first.toString();
+      } else {
+        databaseName = '未知数据库';
+      }
+    } else {
+      databaseName = '未知数据库';
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -29,7 +50,7 @@ class QueryScreen extends GetView<QueryController> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'SQL查询 / SQL Query - ${controller.databaseName}',
+                'SQL查询 / SQL Query - $databaseName',
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -64,8 +85,8 @@ class QueryScreen extends GetView<QueryController> {
                 children: [
                   // 编辑器标题栏
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Theme.of(context)
                           .colorScheme
@@ -134,8 +155,8 @@ class QueryScreen extends GetView<QueryController> {
                 children: [
                   // 结果区域标题栏
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     decoration: BoxDecoration(
                       color: Theme.of(context)
                           .colorScheme
@@ -159,7 +180,8 @@ class QueryScreen extends GetView<QueryController> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '查询结果 / Query Results',
+                          // '查询结果 / Query Results',
+                          '查询结果',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.bold,

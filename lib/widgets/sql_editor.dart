@@ -888,85 +888,177 @@ class _SqlEditorState extends State<SqlEditor> {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                // 格式化按钮
-                Tooltip(
-                  message: '格式化SQL / Format SQL',
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2C313C),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.format_align_left,
-                        color: Color(0xFF98C379),
-                        size: 20,
-                      ),
-                      style: IconButton.styleFrom(
-                        padding: const EdgeInsets.all(10),
-                      ),
-                      onPressed: _formatCode,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // 快捷操作按钮组
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(
-                        color: Colors.white.withOpacity(0.08),
-                      ),
-                    ),
-                  ),
-                  child: Row(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 判断是否为小屏设备
+                final isSmallScreen = constraints.maxWidth < 480;
+
+                if (isSmallScreen) {
+                  // 在小屏幕上使用垂直布局
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildQuickActionButton(context, 'SELECT', '选择数据'),
-                      _buildQuickActionButton(context, 'INSERT', '插入数据'),
-                      _buildQuickActionButton(context, 'UPDATE', '更新数据'),
-                      _buildQuickActionButton(context, 'DELETE', '删除数据'),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                // 执行按钮
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF98C379).withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                      // 第一行：格式化按钮和执行按钮
+                      Row(
+                        children: [
+                          // 格式化按钮
+                          Tooltip(
+                            message: '格式化SQL / Format SQL',
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2C313C),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.format_align_left,
+                                  color: Color(0xFF98C379),
+                                  size: 20,
+                                ),
+                                style: IconButton.styleFrom(
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                                onPressed: _formatCode,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          // 执行按钮
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFF98C379).withOpacity(0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.play_arrow, size: 18),
+                              label: const Text(
+                                '执行',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF98C379),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: widget.onExecute,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // 第二行：快捷操作按钮组（可横向滚动）
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildQuickActionButton(context, 'SELECT', '选择数据'),
+                            _buildQuickActionButton(context, 'INSERT', '插入数据'),
+                            _buildQuickActionButton(context, 'UPDATE', '更新数据'),
+                            _buildQuickActionButton(context, 'DELETE', '删除数据'),
+                          ],
+                        ),
                       ),
                     ],
-                  ),
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.play_arrow, size: 22),
-                    label: const Text(
-                      '执行 / Execute',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.3,
+                  );
+                } else {
+                  // 在大屏幕上保持原有的水平布局
+                  return Row(
+                    children: [
+                      // 格式化按钮
+                      Tooltip(
+                        message: '格式化SQL / Format SQL',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2C313C),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.format_align_left,
+                              color: Color(0xFF98C379),
+                              size: 20,
+                            ),
+                            style: IconButton.styleFrom(
+                              padding: const EdgeInsets.all(10),
+                            ),
+                            onPressed: _formatCode,
+                          ),
+                        ),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF98C379),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      const SizedBox(width: 12),
+                      // 快捷操作按钮组
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: Colors.white.withOpacity(0.08),
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildQuickActionButton(context, 'SELECT', '选择数据'),
+                            _buildQuickActionButton(context, 'INSERT', '插入数据'),
+                            _buildQuickActionButton(context, 'UPDATE', '更新数据'),
+                            _buildQuickActionButton(context, 'DELETE', '删除数据'),
+                          ],
+                        ),
                       ),
-                      elevation: 0,
-                    ),
-                    onPressed: widget.onExecute,
-                  ),
-                ),
-              ],
+                      const Spacer(),
+                      // 执行按钮
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF98C379).withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.play_arrow, size: 22),
+                          label: const Text(
+                            '执行 / Execute',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF98C379),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: widget.onExecute,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
           ),
         // 代码编辑器区域
@@ -1051,8 +1143,13 @@ class _SqlEditorState extends State<SqlEditor> {
       }
     }
 
+    // 判断是否为小屏设备
+    final isSmallScreen = MediaQuery.of(context).size.width < 480;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 2 : 4,
+      ),
       child: Tooltip(
         message: tooltip,
         child: Container(
@@ -1067,7 +1164,9 @@ class _SqlEditorState extends State<SqlEditor> {
             onPressed: () => _insertTemplate(text),
             style: TextButton.styleFrom(
               backgroundColor: getButtonColor().withOpacity(0.1),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 8 : 16,
+                  vertical: isSmallScreen ? 8 : 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(5),
               ),
@@ -1076,7 +1175,7 @@ class _SqlEditorState extends State<SqlEditor> {
               text,
               style: TextStyle(
                 color: getButtonColor(),
-                fontSize: 13,
+                fontSize: isSmallScreen ? 11 : 13,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'JetBrainsMono',
               ),

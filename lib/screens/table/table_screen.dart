@@ -11,8 +11,24 @@ class TableScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // 初始化表控制器
     final controller = Get.put(TableController());
-    // 获取从路由传递的数据库名称
-    final databaseName = Get.arguments as String;
+
+    // 更健壮的参数处理方式
+    String databaseName;
+    if (Get.arguments is String) {
+      databaseName = Get.arguments as String;
+    } else if (Get.arguments is Map) {
+      // 尝试从Map中获取数据库名称
+      final argsMap = Get.arguments as Map;
+      if (argsMap.containsKey('database')) {
+        databaseName = argsMap['database'].toString();
+      } else if (argsMap.values.isNotEmpty && argsMap.values.first is String) {
+        databaseName = argsMap.values.first.toString();
+      } else {
+        databaseName = '未知数据库';
+      }
+    } else {
+      databaseName = '未知数据库';
+    }
 
     return Scaffold(
       appBar: AppBar(

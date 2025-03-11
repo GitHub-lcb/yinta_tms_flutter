@@ -30,6 +30,17 @@ class ConnectionService {
   /// 用于UI显示和配置选择
   List<ConnectionConfig> get savedConnections => _savedConnections;
 
+  /// 默认的数据库连接配置
+  /// 提供一个预设的连接配置
+  final _defaultConfig = ConnectionConfig(
+    name: 'TMS默认连接',
+    host: '114.132.248.219',
+    port: 3306,
+    user: 'lcb_test',
+    password: 'i8ChtXWD5pptRGhs',
+    isOffline: false,
+  );
+
   /// 初始化服务方法
   /// 在服务创建时调用
   /// 从SharedPreferences加载所有保存的连接配置
@@ -44,6 +55,11 @@ class ConnectionService {
     _savedConnections = savedJson
         .map((json) => ConnectionConfig.fromJson(jsonDecode(json)))
         .toList();
+
+    // 如果没有保存的连接，添加默认连接
+    if (_savedConnections.isEmpty) {
+      await saveConnection(_defaultConfig);
+    }
   }
 
   /// 保存连接配置方法

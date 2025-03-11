@@ -30,8 +30,8 @@ public class DownloadService {
             
             // 桌面版本
             urls.put("windows", "https://qny.lichenbo.cn/tms/tms-connect.exe");
-            urls.put("macos", "");
-            urls.put("linux", String.format("%s/desktop/linux/mysql-client-%s.AppImage", baseUrl, version));
+            urls.put("macos", "https://qny.lichenbo.cn/tms/Yinta-TMS.dmg");
+            urls.put("linux", "");
             
             // 移动版本
             urls.put("android", "https://qny.lichenbo.cn/tms/tms-connect.apk");
